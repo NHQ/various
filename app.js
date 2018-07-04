@@ -9,7 +9,7 @@ var epochas = 6
 var sample_count = 20000 // using 20k training samples
 var input_shape = [batch_size,784]
 
-// vae returns a sequential multi-layer dense network; we create 2, one for encoder, one for decoder
+// "dense" returns a sequential multi-layer dense network; we create 2, one for encoder, one for decoder
 // tryint to reproduce https://stats.stackexchange.com/questions/190148/building-an-autoencoder-in-tensorflow-to-surpass-pca#answer-307746
 
 var encode_layers = [{size: 512, activation: 'elu'}, {size: 128, activation: 'elu'}, {size: 2, activation: 'linear'}]

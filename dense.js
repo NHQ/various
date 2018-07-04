@@ -3,10 +3,13 @@ const tf = $.tf
 
 module.exports = dense
 
+
 function dense({input_shape, layers}){
 
   var lastOutput = input_shape[1] 
   var variables = [] 
+  var rootOp = function(input){return input}
+
   // this reduce op returns a function for each value in layers
   // eachfunction calls the layer above it
   // the initial function returns the input
@@ -16,13 +19,11 @@ function dense({input_shape, layers}){
     variables.push(layer)
     lastOutput = config.size 
     let fn = a
-    let activation = tf[config.activation] || function(x){ return x}
+    let activation = tf[config.activation] || rootOp
     return function(input){
       let output = fn(input)
       return activation(output.matMul(layer))
-    }}, function(input){
-      return input
-  })    
+    }}, rootOp)    
 
   var outputShape = [input_shape[0], lastOutput]
   return {flow, variables, outputShape}

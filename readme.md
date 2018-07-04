@@ -1,5 +1,5 @@
 ![](./various.png)
-
+*garbage!!!*
 # about
 
 this repo is the beginning of a Variational Autoencoder (VAE), or generative abstract imaginary awesomenss (GAIA), plus other js ML goodies, like functional modeling using tensorflow-core.  

@@ -1,4 +1,4 @@
-![](./various_crap.png)
+![](./various.png)
 
 # about
 
@@ -11,8 +11,6 @@ Our original VAE results were awful, so we went back to "sanity check" and just 
 Those results are also awful, and that is the current status;  sanity remains in check; see `app.js` 
 
 the image at the top shows actual digits next to reconstructed digits, after 6 epochas over 20K mnist images; the loss is usually between .2 and .5;  I feel like it's getting worse every attempt!
-
-We orginally set out to replicate a VAE with KL-Divergance, such as seen around the internet ([here](https://towardsdatascience.com/intuitively-understanding-variational-autoencoders-1bfe67eb5daf), [here](https://github.com/keras-team/keras/blob/master/examples/variational_autoencoder.py)); our first rough attempt is included in this repo as `/test_vae.js`, but it's very rough.  
 
 # run app.js
 there is a bundled app in the `/public` folder you can serve as a static dir and open /index.html; or use the simple build step below;  currently it logs the loss periodically to the dev console (ctrl-shift-j), and after the epochas finish it reconstructs a small test batch, and appends those as canvas to the page next to the original.

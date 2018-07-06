@@ -1,5 +1,5 @@
 const tf = require('@tensorflow/tfjs')
-//require('@tensorflow/tfjs-node-gpu')
+require('@tensorflow/tfjs-node-gpu')
 
 module.exports = {tf, combinatorial, nextTick, orthoUniform, orthoNormal, orthoTruncated, randomNormal, createRollMatrix}
 

@@ -3,16 +3,12 @@ const tf = $.tf
 
 module.exports = dense
 
-
 function dense({input_shape, layers}){
 
   var lastOutput = input_shape[1] 
   var variables = [] 
   var rootOp = function(input){return input}
 
-  // this reduce op returns a function for each value in layers
-  // eachfunction calls the layer above it
-  // the initial function returns the input
   var flow = layers.reduce((a, config) => {
     let shape = [lastOutput, config.size] 
     let layer = tf.variable($.randomNormal({shape}))

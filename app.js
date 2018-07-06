@@ -2,9 +2,9 @@ var dense = require('./dense.js')
 var $ = require('./utils.js')
 const tf = $.tf
 
-import {MnistData} from './mnist_data'
+var mnist = require('./data.js') 
 
-var batch_size = 1
+var batch_size = 128
 var epochas = 6
 var sample_count = 20000 // using 20k training samples
 var input_shape = [batch_size,784]
@@ -13,21 +13,18 @@ var input_shape = [batch_size,784]
 // tryint to reproduce https://stats.stackexchange.com/questions/190148/building-an-autoencoder-in-tensorflow-to-surpass-pca#answer-307746
 
 var encode_layers = [{size: 512, activation: 'elu'}, {size: 128, activation: 'elu'}, {size: 2, activation: 'linear'}]
-var decode_layers = [{size: 128, activation: 'elu'}, {size: 512, activation: 'elu'}, {size: 784, activation: 'linear'}]
+var decode_layers = [{size: 128, activation: 'elu'}, {size: 512, activation: 'elu'}, {size: 784, activation: 'sigmoid'}]
 var encoder = dense({input_shape, layers: encode_layers})
 var decoder = dense({input_shape: encoder.outputShape, layers: decode_layers})
 
 var rate = .01
 var optimizer = tf.train.adam(rate)
 
-var data
-
 // run it
 load_and_run()
 
 async function load_and_run(){
-  data = new MnistData()
-  await data.load()
+  await mnist.loadData()
   train()
   test()
 }
@@ -50,12 +47,11 @@ function train(batch){
   var batch = []
 
   for(var x = 0; x < sample_count; x++){
-    batch.push(data.nextTrainBatch(batch_size))
+    batch.push(mnist.nextTrainBatch(batch_size).image.reshape([1,784]))
   }
-
   for(var x = 0; x < epochas; x++){
     batch.forEach((input, i) => {
-      optimizer.minimize(() => loss(input.xs, feed_fwd(input.xs), i))
+      optimizer.minimize(() => loss(input, feed_fwd(input), i))
     })
   }
 }
@@ -72,8 +68,8 @@ function test(input){
   
   batch.forEach(input => {
     var result = feed_fwd(input.xs)
-    draw(input.xs)
-    draw(result)
+    //draw(input.xs)
+    //draw(result)
   })
 }
 

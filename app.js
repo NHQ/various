@@ -4,7 +4,7 @@ const tf = $.tf
 
 var mnist = require('./data.js') 
 
-var batch_size = 128
+var batch_size = 1
 var epochas = 6
 var sample_count = 20000 // using 20k training samples
 var input_shape = [batch_size,784]
@@ -19,14 +19,14 @@ var decoder = dense({input_shape: encoder.outputShape, layers: decode_layers})
 
 var rate = .01
 var optimizer = tf.train.adam(rate)
-
+tf.tidy(()=>{})
 // run it
 load_and_run()
 
 async function load_and_run(){
   await mnist.loadData()
   train()
-  test()
+  //test()
 }
 
 function feed_fwd(input){
@@ -46,18 +46,22 @@ function loss(input, result, i){
 function train(batch){
   var batch = []
 
-  for(var x = 0; x < sample_count; x++){
-    batch.push(mnist.nextTrainBatch(batch_size).image.reshape([1,784]))
+  for(var x = 0; x < sample_count / batch_size; x++){
+    batch.push(mnist.nextTrainBatch(batch_size).image.reshape([batch_size,784]))
   }
+
   for(var x = 0; x < epochas; x++){
+    var _loss
     batch.forEach((input, i) => {
-      optimizer.minimize(() => loss(input, feed_fwd(input), i))
+      _loss = optimizer.minimize(() => loss(input, feed_fwd(input), i), true)
     })
+    console.log(`loss after epoch ${x}: ${_loss.dataSync()[0]}`)
+    mnist.resetTraining()
   }
 }
 
 function test(input){
-  
+ // TODO: update for node backend 
   // reconstruct a few digits
 
   var batch = []

@@ -19,7 +19,6 @@ var decoder = dense({input_shape: encoder.outputShape, layers: decode_layers})
 
 var rate = .01
 var optimizer = tf.train.adam(rate)
-tf.tidy(()=>{})
 // run it
 load_and_run()
 
@@ -35,14 +34,6 @@ function feed_fwd(input){
   return result
 }
 
-function loss(input, result, i){
-  var loss = tf.losses.meanSquaredError(input, result)
-  if(i % 500 == 0){ // print loss evey 500 train
-    console.log(loss.dataSync()[0])
-  } 
-  return loss
-} 
-
 function train(batch){
   var batch = []
 
@@ -51,12 +42,16 @@ function train(batch){
   }
 
   for(var x = 0; x < epochas; x++){
-    var _loss
     batch.forEach((input, i) => {
-      _loss = optimizer.minimize(() => loss(input, feed_fwd(input), i), true)
+      optimizer.minimize(function(){
+        let result = feed_fwd(input)
+        let loss = tf.losses.meanSquaredError(input, result)
+        if(i % 500 == 0){ // print loss evey 500 train
+          console.log(loss.dataSync()[0])
+        } 
+        return loss
+      })
     })
-    console.log(`loss after epoch ${x}: ${_loss.dataSync()[0]}`)
-    mnist.resetTraining()
   }
 }
 

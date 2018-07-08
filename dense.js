@@ -3,7 +3,7 @@ const tf = $.tf
 
 module.exports = dense
 
-function dense({input_shape, layers}){
+function dense({input_shape, layers, ortho=false}){
 
   var lastOutput = input_shape[1] 
   var variables = [] 
@@ -11,7 +11,11 @@ function dense({input_shape, layers}){
 
   var flow = layers.reduce((a, config) => {
     let shape = [lastOutput, config.size] 
-    let layer = tf.variable($.randomNormal({shape}))
+    let layer
+    if(config.size > lastOutput && ortho)
+      layer = $.orthoNormal({shape})
+    else
+      layer = tf.variable($.randomNormal({shape}))
     variables.push(layer)
     lastOutput = config.size 
     let fn = a

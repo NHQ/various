@@ -23,8 +23,9 @@
     "ascjsify": "^1.0.0",
     "babel-cli": "^6.26.0",
     "babel-preset-node6": "^11.0.0",
+    "browserify-shim": "^3.8.14",
     "math-random": "^1.0.1",
-    "browserify-shim": "^3.8.14"
+    "typedarray-to-buffer": "^3.1.5"
   },
   "devDependencies": {}
 }

@@ -7,19 +7,23 @@ const tf = $.tf
 var mnist = require('./data.js') 
 
 var batch_size = 1000 //256 * 4
-var epochas = 667 
+var epochas = 120 
 var sample_count = 10000 // using 10k training samples
 var input_shape = [batch_size,784]
 
 // "dense" returns a sequential multi-layer dense network; we create 2, one for encoder, one for decoder
 // tryint to reproduce https://stats.stackexchange.com/questions/190148/building-an-autoencoder-in-tensorflow-to-surpass-pca#answer-307746
 
-var encode_layers = [{size: 1024 * 2, activation: 'linear'},{size: 1024, activation: 'tanh'},{size: 512, activation: 'sigmoid'}, {size: 128, activation: 'sigmoid'}, {size: 10, activation: 'linear'}]
+var encode_layers = [{size: 1024 * 2, activation: 'linear', init: 'orthoUniform', trianable: false},{size: 1024, activation: 'tanh'},{size: 512, activation: 'sigmoid'}, {size: 128, activation: 'sigmoid'}, {size: 10, activation: 'linear'}]
+
+var z_layer = $.initializers.orthoUniform({shape: [10,10], min: -1, max: 1})
+
 var decode_layers = [{size: 128, activation: 'sigmoid'}, {size: 512, activation: 'sigmoid'},{size: 1024, activation: 'tanh'},{size: 1024 * 2, activation: 'tanh'}, {size: 784, activation: 'linear'}]
+
 var encoder = dense({input_shape, layers: encode_layers, ortho: true})
 var decoder = dense({input_shape: encoder.outputShape, layers: decode_layers})
 
-var rate = .11
+var rate = 1.11
 var optimizer = tf.train.adam(rate)
 // run it
 load_and_run()
@@ -32,6 +36,7 @@ async function load_and_run(){
 
 function feed_fwd(input){
   var encoding = encoder.flow(input)
+  encoding = encoding.matMul(z_layer)
   var result = decoder.flow(encoding)
   return {result, encoding}
 }
@@ -46,14 +51,17 @@ function train(batch){
   }
 
   for(var x = 0; x < epochas; x++){
+    var _loss
     batch.forEach((input, i) => {
       _loss = optimizer.minimize(function(){
         let {result, encoding} = feed_fwd(input)
         let reconLoss = tf.losses.meanSquaredError(input, result)
         let encodeLoss = tf.losses.meanSquaredError(labels[i], encoding)
         if(i % 10 == 0){ // print loss evey 500 train
+          console.log('***************************************************************')
           console.log(`current encode loss is: ${encodeLoss.dataSync()[0]}`)
           console.log(`current reconstruction loss is: ${reconLoss.dataSync()[0]}`)
+          console.log(`tf memory is ${JSON.stringify(tf.memory())}`)
         } 
         return tf.square(reconLoss).add(encodeLoss)
       }, true)

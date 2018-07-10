@@ -1,27 +1,78 @@
+Math.random = require('math-random')
 const tf = require('@tensorflow/tfjs')
 require('@tensorflow/tfjs-node-gpu')
 
-module.exports = {tf, combinatorial, nextTick, orthoUniform, orthoNormal, orthoTruncated, randomNormal, createRollMatrix}
+tf.linear = rootOp
+
+const initializers = {orthoNormal, orthoUniform, orthoTruncated, randomNormal, randomUniform, randomTruncated}
+
+module.exports = {tf, variable, initializers, combinatorial, nextTick, createRollMatrix, assert}
+
+function rootOp(input){return input}
+
+function assert(thing, whiches){
+  for(which in whiches) {
+    if(thing[whiches[which]] == undefined){
+      throw new Error(`¡this thing ${thing.toString()} has not ${whiches[which]}!`)
+    }
+  }
+}
+
+function configur8({trainable=true, init='randomNormal', min=0, max=1, mean=0, dev=1, regularizer=false, activation='linear', type='float32'}){
+  // the idea here is to add these defined params to a configration that lacks them
+  // so that from this point on, the API has uniform arrity and zero missing params...
+  var config = arguments['0']
+  config['trainable'] = trainable
+  config['init'] = init
+  config['mean'] = mean 
+  config['dev'] = dev
+  config['min'] = min 
+  config['mac'] = max
+  config['regularizer'] = regularizer
+  config['activation'] = activation
+  //assert(config, 'shape')
+  //assert(config, 'layers')
+  return config
+}
+
 
 function combinatorial (n, k){ var p = n - k; var x = 1; while(n > p) x*=(n--); return x}
 
+function variable(config){
+  let params = configur8(config)
+  let init = initializers[params.init]
+  let activation = tf[params.activation] 
+  return {layer: tf.variable(init(params), params.trainable), activation: activation}
+}
+
 async function nextTick(fn){ await tf.nextFrame(); fn()}
 
-function orthoUniform({shape, min=-1, max=1, type='float32'}){
-  return tf.linalg.gramSchmidt(tf.randomUniform(shape, min, max, type))
+function randomNormal({shape, mean=0, dev=1, type='float32'}){
+  return tf.randomNormal(shape, mean, dev, type)
+}
+
+function randomTruncated({shape, mean=0, dev=1, type='float32'}){
+  return tf.randomNormal(shape, mean, dev, type)
+}
+
+function randomUniform({shape, min=-1, max=1, type='float32'}){
+  return tf.randomUniform(shape, min, max, type)
+}
+
+function orthoNormal({shape, mean=0, dev=1, type='float32'}){
+  return tf.linalg.gramSchmidt(tf.randomNormal(shape, mean, dev, type))
 }
 
 function orthoTruncated({shape, mean=0, dev=1, type='float32'}){
   return tf.linalg.gramSchmidt(tf.truncatedNormal(shape, mean, dev, type))
 }
 
-function randomNormal({shape, mean=0, dev=1, type='float32'}){
-  return tf.randomNormal(shape, mean, dev, type)
+function orthoUniform({shape, min=-1, max=1, type='float32'}){
+  return tf.linalg.gramSchmidt(tf.randomUniform(shape, min, max, type))
 }
 
-function orthoNormal({shape, mean=0, dev=1, type='float32'}){
-  return tf.linalg.gramSchmidt(tf.randomNormal(shape, mean, dev, type))
-}
+
+
 
 function createRollMatrix(s, t){
 

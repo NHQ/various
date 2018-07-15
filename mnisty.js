@@ -6,25 +6,24 @@ const tf = $.tf
 
 var mnist = require('./data.js') 
 
-var batch_size = 100//256 * 4
-var epochas = 12
+var batch_size = 128//256 * 4
+var epochas = 1000 
 var sample_count = 10000 // using 10k training samples
 var input_shape = [batch_size,784]
 
 // "dense" returns a sequential multi-layer dense network; we create 2, one for encoder, one for decoder
 // tryint to reproduce https://stats.stackexchange.com/questions/190148/building-an-autoencoder-in-tensorflow-to-surpass-pca#answer-307746
 var lens = {size: 1024 * 2, activation: 'linear', init: 'orthoUniform', trianable: false}
-var encode_layers = [{size: 1024, activation: 'sigmoid'},{size: 512, activation: 'sigmoid'}, {size: 256, activation: 'sigmoid'},{size: 128, activation: 'sigmoid'}, {size: 10, activation: 'linear'}]
+var encode_layers = [{size: 1024, activation: 'tanh'},{size: 512, activation: 'sigmoid'}, {size: 256, activation: 'sigmoid'},{size: 128, activation: 'sigmoid'}, {size: 10, activation: 'linear'}]
 
 //var z_layer = $.initializers.orthoUniform({shape: [10,100], min: 0, max: 1})
-var l = 8
+var l = 3
 var d = new Array(l).fill(0)
 decode_layers = d.map((e, i) => ({size: Math.min(input_shape[1], Math.floor(input_shape[1] / (l-1)) * (i +1))}))
 decode_layers[l-1].activation = 'linear'
 
 //var decode_layers = [{size: 128, activation: 'linear'}, {size: 512, activation: 'sigmoid'},{size: 1024, activation: 'tanh'},{size: 1024 * 2, activation: 'tanh'}, {size: 784, activation: 'linear'}]
 
-//var lensing = rnn({input_shape, layers: [lens]})
 var encoder = rnn({input_shape, layers: encode_layers, ortho: true})
 var decoder = dense({input_shape: encoder.outputShape, layers: decode_layers})
 
@@ -39,9 +38,8 @@ async function load_and_run(){
   test()
 }
 
-function feed_fwd(input, train){
-  var encoding = encoder.flow(input, train)
-  //console.log(encoder)
+function feed_fwd(input){
+  var encoding = encoder.flow(input)
   var z = null// encoding.matMul(z_layer)
   var result = decoder.flow(encoding)
   return {result, encoding, z}
@@ -59,29 +57,24 @@ function train(batch){
   for(var x = 0; x < epochas; x++){
     tf.tidy(() => {
       var _loss
-      var dispose = []
       batch.forEach((input, i) => {
         _loss = optimizer.minimize(function(){
-          let {result, encoding} = feed_fwd(input, true)
-          let reconLoss = tf.sum(tf.losses.meanSquaredError(input, result))
-          let encodeLoss = tf.sum(tf.losses.softmaxCrossEntropy(labels[i], encoding))
+          let {result, encoding} = feed_fwd(input)
+          let reconLoss = tf.losses.meanSquaredError(input, result)
+          let encodeLoss = tf.losses.meanSquaredError(labels[i], encoding)
           if(i % 10 == 0){ // print loss evey 500 train
-            console.log('***************************************************************')
-            console.log(`current encode loss is: ${encodeLoss.dataSync()}`)
-            console.log(`current reconstruction loss is: ${reconLoss.dataSync()}`)
+//            console.log('***************************************************************')
+//            console.log(`current encode loss is: ${encodeLoss.dataSync()[0]}`)
+//            console.log(`current reconstruction loss is: ${reconLoss.dataSync()[0]}`)
+//            console.log(`tf memory is ${JSON.stringify(tf.memory())}`)
           } 
           return reconLoss.add(encodeLoss)
         }, true)
       })
       //_loss.print()
-      console.log(`tf memory is ${JSON.stringify(tf.memory())}`)
-     // console.log(`loss after epoch ${(x+1)}: ${_loss.dataSync()[0]}`)
+      console.log(`loss after epoch ${(x+1)}: ${_loss.dataSync()[0]}`)
       mnist.resetTraining()
-      let ld = encoder.disposal.length
-      console.log(ld)
-      tf.dispose(encoder.disposal)
-      for(x in encoder.dispsosal) encoder.disposal.shift()//encoder.disposal.map(e => false).filter(Boolean)
-    })
+  })
   }
 }
 
@@ -91,19 +84,17 @@ function test(input){
 
   var batch = []
   var labels = []
-  mnist.resetTest()
-  for(var x = 0; x < 21; x++){
-    var d = mnist.nextTrainBatch(1)
+  mnist.resetTraining()
+  for(var x = 0; x < 11; x++){
+    var d = mnist.nextTestBatch(1)
     batch.push(d.image.reshape([1, input_shape[1]]))
     labels.push(d.label.reshape([1, 10]))
   }
   
   batch.forEach((input, i) => {
     var {result, encoding} = feed_fwd(input)
-    let loss = tf.losses.softmaxCrossEntropy(labels[i], encoding)
-    encoding.print()
-    labels[i].print()
-    tf.sum(loss).print()
+    let loss = tf.losses.meanSquaredError(labels[i], encoding)
+    loss.print()
     var name = `pic-${i}.raw`
     draw(input, 'input-' + name)
     draw(result, 'result-' + name)

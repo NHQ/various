@@ -6,8 +6,8 @@ const tf = $.tf
 
 var mnist = require('./data.js') 
 
-var batch_size = 100//256 * 4
-var epochas = 12
+var batch_size = 71//256 * 4
+var epochas = 1024
 var sample_count = 10000 // using 10k training samples
 var input_shape = [batch_size,784]
 
@@ -16,7 +16,9 @@ var input_shape = [batch_size,784]
 var lens = {size: 1024 * 2, activation: 'linear', init: 'orthoUniform', trianable: false}
 var encode_layers = [{size: 1024, activation: 'sigmoid'},{size: 512, activation: 'sigmoid'}, {size: 256, activation: 'sigmoid'},{size: 128, activation: 'sigmoid'}, {size: 10, activation: 'linear'}]
 
-//var z_layer = $.initializers.orthoUniform({shape: [10,100], min: 0, max: 1})
+var z_mean = $.initializers.orthoUniform({shape: [10,100], min: 0, max: 1})
+var z_dev= $.initializers.orthoUniform({shape: [10,100], min: 0, max: 1})
+
 var l = 8
 var d = new Array(l).fill(0)
 decode_layers = d.map((e, i) => ({size: Math.min(input_shape[1], Math.floor(input_shape[1] / (l-1)) * (i +1))}))
@@ -25,7 +27,7 @@ decode_layers[l-1].activation = 'linear'
 //var decode_layers = [{size: 128, activation: 'linear'}, {size: 512, activation: 'sigmoid'},{size: 1024, activation: 'tanh'},{size: 1024 * 2, activation: 'tanh'}, {size: 784, activation: 'linear'}]
 
 //var lensing = rnn({input_shape, layers: [lens]})
-var encoder = rnn({input_shape, layers: encode_layers, ortho: true})
+var encoder = rnn({input_shape, depth:4, layers: encode_layers, ortho: true})
 var decoder = dense({input_shape: encoder.outputShape, layers: decode_layers})
 
 var rate = .01
@@ -33,8 +35,7 @@ var optimizer = tf.train.adam(rate)
 // run it
 load_and_run()
 
-async function load_and_run(){
-  await mnist.loadData()
+function load_and_run(){
   train()
   test()
 }
@@ -43,45 +44,43 @@ function feed_fwd(input, train){
   var encoding = encoder.flow(input, train)
   //console.log(encoder)
   var z = null// encoding.matMul(z_layer)
-  var result = decoder.flow(encoding)
-  return {result, encoding, z}
+  //var result = decoder.flow(encoding)
+  return {encoding, z}
 }
 
 function train(batch){
   var batch = []
   var labels = []
   for(var x = 0; x < sample_count / batch_size; x++){
-    var d = mnist.nextTrainBatch(batch_size)
-    batch.push(d.image.reshape([batch_size, input_shape[1]]))
-    labels.push(d.label.reshape([batch_size, 10]))
+    var d = $.variable({init: 'randomUniform', shape: [batch_size, input_shape[1]], trainable: false}).layer
+    batch.push(d)
   }
 
   for(var x = 0; x < epochas; x++){
-    tf.tidy(() => {
       var _loss
       var dispose = []
       batch.forEach((input, i) => {
+    tf.tidy(() => {
         _loss = optimizer.minimize(function(){
-          let {result, encoding} = feed_fwd(input, true)
-          let reconLoss = tf.sum(tf.losses.meanSquaredError(input, result))
-          let encodeLoss = tf.sum(tf.losses.softmaxCrossEntropy(labels[i], encoding))
+          let {encoding} = feed_fwd(input, true)
+          let m = encoding.dot(z_mean)
+          let d = encoding.dot(z_dev)
+          var loss = tf.mean($.scalar(.5).add(tf.sum($.scalar(1).add(d).sub(tf.square(m)).sub(tf.square(tf.exp(d))), -1)))
           if(i % 10 == 0){ // print loss evey 500 train
             console.log('***************************************************************')
-            console.log(`current encode loss is: ${encodeLoss.dataSync()}`)
-            console.log(`current reconstruction loss is: ${reconLoss.dataSync()}`)
+            console.log(`current loss is: ${loss.dataSync()}`)
           } 
-          return reconLoss.add(encodeLoss)
+          $.dispose([m, d, loss])
+          return tf.abs(loss)
         }, true)
+  })
       })
       //_loss.print()
       console.log(`tf memory is ${JSON.stringify(tf.memory())}`)
      // console.log(`loss after epoch ${(x+1)}: ${_loss.dataSync()[0]}`)
       mnist.resetTraining()
-      let ld = encoder.disposal.length
-      console.log(ld)
-      tf.dispose(encoder.disposal)
-      for(x in encoder.dispsosal) encoder.disposal.shift()//encoder.disposal.map(e => false).filter(Boolean)
-    })
+      $.dispose(dispose, true)
+      dispose = []//encoder.disposal.map(e => false).filter(Boolean)
   }
 }
 

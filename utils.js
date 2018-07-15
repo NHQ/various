@@ -1,14 +1,35 @@
 Math.random = require('math-random')
+Error.stackTraceLimit = Infinity
 const tf = require('@tensorflow/tfjs')
 require('@tensorflow/tfjs-node-gpu')
 
 tf.linear = rootOp
 
-const initializers = {orthoNormal, orthoUniform, orthoTruncated, randomNormal, randomUniform, randomTruncated}
+const init = initializers = {configur8, orthoNormal, orthoUniform, orthoTruncated, randomNormal, randomUniform, randomTruncated}
 
-module.exports = {tf, variable, initializers, combinatorial, nextTick, createRollMatrix, assert}
+module.exports = {tf, scalar, dispose, variable, initializers, init, combinatorial, nextTick, createRollMatrix, assert}
 
 function rootOp(input){return input}
+
+const scalars = {}
+var disposal = []
+
+function dispose(gc=[], run=false){
+  if(gc.length) disposal = disposal.concat(gc)
+  if(run) {
+    tf.dispose(disposal)
+    for(x in disposal) disposal.shift()
+  }
+}
+
+
+function scalar(s, type='float32', train=false){
+  if(scalars[s]) return scalars[s]
+  else { 
+    scalars[s] = tf.variable(tf.scalar(s, type), train) 
+    return scalars[s]
+  }
+}
 
 function assert(thing, whiches){
   for(which in whiches) {
@@ -18,7 +39,7 @@ function assert(thing, whiches){
   }
 }
 
-function configur8({trainable=true, init='randomNormal', min=0, max=1, mean=0, dev=1, regularizer=false, activation='linear', type='float32'}){
+function configur8({trainable=true, init='randomNormal', min=0, max=1, mean=0, dev=1, regularizer=false, activation='sigmoid', type='float32'}){
   // the idea here is to add these defined params to a configration that lacks them
   // so that from this point on, the API has uniform arrity and zero missing params...
   var config = arguments['0']
@@ -28,6 +49,7 @@ function configur8({trainable=true, init='randomNormal', min=0, max=1, mean=0, d
   config['dev'] = dev
   config['min'] = min 
   config['mac'] = max
+  config['type'] = type
   config['regularizer'] = regularizer
   config['activation'] = activation
   //assert(config, 'shape')
@@ -42,7 +64,8 @@ function variable(config){
   let params = configur8(config)
   let init = initializers[params.init]
   let activation = tf[params.activation] 
-  return {layer: tf.variable(init(params), params.trainable), activation: activation}
+  let layer = tf.variable(init(params), params.trainable)
+  return {layer,  activation}
 }
 
 async function nextTick(fn){ await tf.nextFrame(); fn()}

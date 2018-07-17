@@ -1,4 +1,4 @@
-var {dense, rnn} = require('./dense.js')
+var {dense, rnn} = require('./topo.js')
 var $ = require('./utils.js')
 var fs = require('fs')
 var tab = require('typedarray-to-buffer')

@@ -6,7 +6,7 @@ const tf = $.tf
 
 var mnist = require('./data.js') 
 
-var batch_size = 71//256 * 4
+var batch_size = 55//256 * 4
 var epochas = 1024
 var sample_count = 10000 // using 10k training samples
 var input_shape = [batch_size,784]
@@ -27,9 +27,8 @@ decode_layers[l-1].activation = 'linear'
 //var decode_layers = [{size: 128, activation: 'linear'}, {size: 512, activation: 'sigmoid'},{size: 1024, activation: 'tanh'},{size: 1024 * 2, activation: 'tanh'}, {size: 784, activation: 'linear'}]
 
 //var lensing = rnn({input_shape, layers: [lens]})
-var encoder = rnn({input_shape, depth:4, layers: encode_layers, ortho: true})
-var decoder = dense({input_shape: encoder.outputShape, layers: decode_layers})
-
+var encoder = rnn({input_shape, depth:4, layers: encode_layers, ortho: true, xav:true})
+var decoder = dense({input_shape: encoder.outputShape, layers: decode_layers, xav:true})
 var rate = .01
 var optimizer = tf.train.adam(rate)
 // run it
@@ -57,30 +56,37 @@ function train(batch){
   }
 
   for(var x = 0; x < epochas; x++){
-      var _loss
-      var dispose = []
-      batch.forEach((input, i) => {
-    tf.tidy(() => {
-        _loss = optimizer.minimize(function(){
-          let {encoding} = feed_fwd(input, true)
-          let m = encoding.dot(z_mean)
-          let d = encoding.dot(z_dev)
-          var loss = tf.mean($.scalar(.5).add(tf.sum($.scalar(1).add(d).sub(tf.square(m)).sub(tf.square(tf.exp(d))), -1)))
-          if(i % 10 == 0){ // print loss evey 500 train
-            console.log('***************************************************************')
-            console.log(`current loss is: ${loss.dataSync()}`)
-          } 
-          $.dispose([m, d, loss])
-          return tf.abs(loss)
-        }, true)
-  })
-      })
+      tf.tidy(() => {
+        var _loss = $.scalar(0)
+        var dispose = []
+        batch.forEach((input, i) => {
+          _loss = _loss.add(optimizer.minimize(function(){
+            let {encoding} = feed_fwd(input, true)
+            let m = encoding.dot(z_mean)
+            let d = encoding.dot(z_dev)
+            //let ren = encoder.regularize()
+            let regen = encoder.variables.reduce((a, e) => tf.add($.regularize({input: e, l:.001, ll:.001}), a), $.scalar(0)).mul($.scalar(1/input_shape[0]))
+
+            //let red = decoder.regularize()
+            var loss = tf.mean($.scalar(.5).add(tf.sum($.scalar(1).add(d).sub(tf.square(m)).sub(tf.square(tf.exp(d))), -1)))
+            var totes = tf.abs(loss).add(regen)
+            if(i % 10 == 0){ // print loss evey 500 train
+              console.log(`current regularario  is: ${regen.dataSync()}`)
+              console.log(`current loss is: ${totes.dataSync()}`)
+            } 
+            $.dispose([totes, m, d, loss, regen])
+            return totes
+          }, true))
+        })
       //_loss.print()
+      console.log('********************************************')
       console.log(`tf memory is ${JSON.stringify(tf.memory())}`)
-     // console.log(`loss after epoch ${(x+1)}: ${_loss.dataSync()[0]}`)
+      console.log(`average loss after epoch ${(x+1)}:`) 
+      _loss.div($.scalar(batch.length)).print()
       mnist.resetTraining()
       $.dispose(dispose, true)
       dispose = []//encoder.disposal.map(e => false).filter(Boolean)
+    })
   }
 }
 

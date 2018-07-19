@@ -7,12 +7,17 @@ tf.linear = rootOp
 
 const init = initializers = {configur8, orthoNormal, orthoUniform, orthoTruncated, randomNormal, randomUniform, randomTruncated}
 
-module.exports = {tf, scalar, dispose, variable, initializers, init, combinatorial, nextTick, createRollMatrix, assert}
+module.exports = {tf, gc, regularize, scalar, dispose, variable, initializers, init, combinatorial, nextTick, createRollMatrix, assert}
 
 function rootOp(input){return input}
 
 const scalars = {}
 var disposal = []
+
+function gc(g=[], run=false){
+  dispose(g, run)
+  return g
+}
 
 function dispose(gc=[], run=false){
   if(gc.length) disposal = disposal.concat(gc)
@@ -20,6 +25,7 @@ function dispose(gc=[], run=false){
     tf.dispose(disposal)
     for(x in disposal) disposal.shift()
   }
+  gc
 }
 
 
@@ -57,6 +63,13 @@ function configur8({trainable=true, init='randomNormal', min=0, max=1, mean=0, d
   return config
 }
 
+function regularize({input, l1=true, l2=true, l=.01, ll=.01}){
+  assert(arguments['0'], ['input'])
+  let r = scalar(0)
+  if(l1) r = tf.add(r, tf.sum(tf.mul(scalar(l), tf.abs(input))))
+  if(l2) r = tf.add(r, tf.sum(tf.mul(scalar(ll), tf.square(input))))
+  return r
+}
 
 function combinatorial (n, k){ var p = n - k; var x = 1; while(n > p) x*=(n--); return x}
 

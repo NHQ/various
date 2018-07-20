@@ -1,5 +1,7 @@
 experimental deep learning from scratch, with javascript, node.js and tensorflow
 
+main work going into `topo.js` and `utils.js`
+
 current experiemts are with mnist, but that's gotten old quickly
 
 results:  we've seen > 98% classification, and various crappy reconstructions, but neither has been the goal

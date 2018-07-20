@@ -4,7 +4,7 @@ main work going into `topo.js` and `utils.js`
 
 current experiemts are with mnist, but that's gotten old quickly
 
-results:  we've seen > 98% classification, and various crappy reconstructions, but neither has been the goal
+results:  we've seen > 99% classification, and various crappy reconstructions, but neither has been the goal
 
 the goal has been to do build fundamentals in functional and expressive style, so we can innovate
 

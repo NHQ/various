@@ -1,7 +1,9 @@
 experimental deep learning from scratch, with javascript, node.js and tensorflow
 
 current experiemts are with mnist, but that's gotten old quickly
+
 results:  we've seen > 98% classification, and various crappy reconstructions, but neither has been the goal
+
 the goal has been to do build fundamentals in functional and expressive style, so we can innovate
 
 recently added to training variables: xavier initialization, regularization;  this was good

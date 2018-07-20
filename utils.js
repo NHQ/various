@@ -25,7 +25,6 @@ function dispose(gc=[], run=false){
     tf.dispose(disposal)
     for(x in disposal) disposal.shift()
   }
-  gc
 }
 
 

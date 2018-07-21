@@ -1,4 +1,4 @@
-var {dense, rnn} = require('./topo.js')
+var {dense, rnn, conv} = require('./topo.js')
 var $ = require('./utils.js')
 var fs = require('fs')
 var tab = require('typedarray-to-buffer')
@@ -10,6 +10,13 @@ var batch_size = 55//256 * 4
 var epochas = 1024
 var sample_count = 10000 // using 10k training samples
 var input_shape = [batch_size,784]
+
+/* TODO
+
+z_mean and z_dev shall become small, depthy rnns
+
+*/
+
 
 // "dense" returns a sequential multi-layer dense network; we create 2, one for encoder, one for decoder
 // tryint to reproduce https://stats.stackexchange.com/questions/190148/building-an-autoencoder-in-tensorflow-to-surpass-pca#answer-307746
@@ -27,7 +34,10 @@ decode_layers[l-1].activation = 'linear'
 //var decode_layers = [{size: 128, activation: 'linear'}, {size: 512, activation: 'sigmoid'},{size: 1024, activation: 'tanh'},{size: 1024 * 2, activation: 'tanh'}, {size: 784, activation: 'linear'}]
 
 //var lensing = rnn({input_shape, layers: [lens]})
+var convo = conv({input_shape, layers:[{size: 3}, {size: 9}]})
+
 var encoder = rnn({input_shape, depth:4, layers: encode_layers, ortho: true, xav:true})
+
 var decoder = dense({input_shape: encoder.outputShape, layers: decode_layers, xav:true})
 var rate = .01
 var optimizer = tf.train.adam(rate)
@@ -40,7 +50,10 @@ function load_and_run(){
 }
 
 function feed_fwd(input, train){
-  var encoding = encoder.flow(input, train)
+  input= input.expandDims(2).expandDims(1).reshape([batch_size, Math.sqrt(input_shape[1]), Math.sqrt(input_shape[1]), 1])
+  var conv = convo.flow(input, train) 
+  conv = conv.reshape(input_shape)
+  var encoding = encoder.flow(conv, train)
   //console.log(encoder)
   var z = null// encoding.matMul(z_layer)
   //var result = decoder.flow(encoding)

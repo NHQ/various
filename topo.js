@@ -1,7 +1,7 @@
 const $ = require('./utils')
 const tf = $.tf
 
-module.exports = {dense, rnn}
+module.exports = {dense, rnn, conv}
 
 const scalar_zero = tf.variable(tf.scalar(0, 'float32'), false) 
 
@@ -53,6 +53,46 @@ function rnn({input_shape, layers, depth=3, mag=.1, input=undefined, ortho=false
 
 }
 
+function conv({input_shape, layers, input=undefined, ortho=false, xav=true}){
+  $.assert(arguments['0'], ['input_shape', 'layers'])
+
+  var lastOutput = input_shape[1] 
+  var variables = [] 
+  var rootOp = function(input){return input}
+  if(input){
+    rootOp = input.flow
+    input_shape = input.outputShape
+  }
+
+  function regularize(){
+    return variables.reduce((a, e) => tf.add($.regularize({input: e}), a), $.scalar(0))
+  }
+  
+
+  var flow = layers.reduce((a, e) => {
+    let config = e
+    let size = config.size
+    if(!Array.isArray(size)) size = [size, size] // square
+    config.shape = [].concat(size, [config.dims || 1, config.dims || 1])
+    console.log(config.shape)
+    if(xav) config.dev = 1 / lastOutput
+    let {layer, activation} = $.variable(config)
+    tf.keep(layer)
+    variables.push(layer)
+    lastOutput = config.size 
+    let filter = $.conv2d(config) 
+    let fn = a
+    
+    return function(input){
+      let output = filter(fn(input)) 
+      let result = activation(output)
+      return result
+    }}, rootOp)    
+
+  var outputShape = [input_shape[0], lastOutput]
+  return {flow, variables, outputShape, regularize}
+}
+
 
 function dense({input_shape, layers, input=undefined, ortho=false, xav=true}){
   $.assert(arguments['0'], ['input_shape', 'layers'])
@@ -89,6 +129,5 @@ function dense({input_shape, layers, input=undefined, ortho=false, xav=true}){
 
   var outputShape = [input_shape[0], lastOutput]
   return {flow, variables, outputShape, regularize}
-
 }
 

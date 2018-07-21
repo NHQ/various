@@ -7,12 +7,21 @@ tf.linear = rootOp
 
 const init = initializers = {configur8, orthoNormal, orthoUniform, orthoTruncated, randomNormal, randomUniform, randomTruncated}
 
-module.exports = {tf, gc, regularize, scalar, dispose, variable, initializers, init, combinatorial, nextTick, createRollMatrix, assert}
+module.exports = {tf, conv2d, gc, regularize, scalar, dispose, variable, initializers, init, combinatorial, nextTick, createRollMatrix, assert}
 
 function rootOp(input){return input}
 
 const scalars = {}
 var disposal = []
+
+function conv2d(params){
+  params = configur8(params)
+  let filter = variable(params)
+  return function(input){
+    return tf.conv2d(input, filter.layer, params.strides, params.pad)
+  }
+}
+
 
 function gc(g=[], run=false){
   dispose(g, run)
@@ -44,7 +53,10 @@ function assert(thing, whiches){
   }
 }
 
-function configur8({trainable=true, init='randomNormal', min=0, max=1, mean=0, dev=1, regularizer=false, activation='sigmoid', type='float32'}){
+function configur8({
+  trainable=true, init='randomNormal', min=0, max=1, mean=0, dev=1, regularizer=false, activation='sigmoid', type='float32', 
+  strides=[1,1], pad='same', dilations=[0,0]
+}){
   // the idea here is to add these defined params to a configration that lacks them
   // so that from this point on, the API has uniform arrity and zero missing params...
   var config = arguments['0']
@@ -57,6 +69,9 @@ function configur8({trainable=true, init='randomNormal', min=0, max=1, mean=0, d
   config['type'] = type
   config['regularizer'] = regularizer
   config['activation'] = activation
+  config['pad'] = pad 
+  config['strides'] = strides 
+  config['dilations'] = dilations
   //assert(config, 'shape')
   //assert(config, 'layers')
   return config

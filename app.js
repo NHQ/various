@@ -1,4 +1,4 @@
-var {dense, rnn} = require('./topo.js')
+var {dense, rnn, conv} = require('./topo.js')
 var $ = require('./utils.js')
 var fs = require('fs')
 var tab = require('typedarray-to-buffer')
@@ -25,7 +25,9 @@ decode_layers[l-1].activation = 'linear'
 //var decode_layers = [{size: 128, activation: 'linear'}, {size: 512, activation: 'sigmoid'},{size: 1024, activation: 'tanh'},{size: 1024 * 2, activation: 'tanh'}, {size: 784, activation: 'linear'}]
 
 //var lensing = rnn({input_shape, layers: [lens]})
-var encoder = rnn({input_shape, layers: encode_layers, ortho: true})
+var convo = conv({input_shape, layers:[{size: [3, 3], depth:9}, {size: [9, 9], depth: 1}]})
+
+var encoder = dense({input_shape, layers: encode_layers})
 var decoder = dense({input_shape: encoder.outputShape, layers: decode_layers})
 
 var rate = .01
@@ -40,7 +42,11 @@ async function load_and_run(){
 }
 
 function feed_fwd(input, train){
-  var encoding = encoder.flow(input, train)
+  input= input.expandDims(2).expandDims(1).reshape([batch_size, Math.sqrt(input_shape[1]), Math.sqrt(input_shape[1]), 1])
+  var conv = convo.flow(input, train)
+  conv = conv.reshape(input_shape)
+
+  var encoding = encoder.flow(conv, train)
   //console.log(encoder)
   var z = null// encoding.matMul(z_layer)
   var result = decoder.flow(encoding)
@@ -64,22 +70,23 @@ function train(batch){
         _loss = optimizer.minimize(function(){
           let {result, encoding} = feed_fwd(input, true)
           let reconLoss = tf.sum(tf.losses.meanSquaredError(input, result))
-          let encodeLoss = tf.sum(tf.losses.softmaxCrossEntropy(labels[i], encoding))
+          let encodeLoss = tf.mean(tf.losses.softmaxCrossEntropy(labels[i], encoding))
+          let regen = encoder.variables.reduce((a, e) => tf.add($.regularize({input: e, l:.001, ll:.001}), a), $.scalar(0)).mul($.scalar(1/input_shape[0]))
+          $.dispose([regen, encodeLoss, reconLoss, result, encoding])
+
           if(i % 10 == 0){ // print loss evey 500 train
             console.log('***************************************************************')
             console.log(`current encode loss is: ${encodeLoss.dataSync()}`)
             console.log(`current reconstruction loss is: ${reconLoss.dataSync()}`)
           } 
-          return reconLoss.add(encodeLoss)
+          return reconLoss.add(encodeLoss).add(regen)
         }, true)
       })
       //_loss.print()
       console.log(`tf memory is ${JSON.stringify(tf.memory())}`)
      // console.log(`loss after epoch ${(x+1)}: ${_loss.dataSync()[0]}`)
       mnist.resetTraining()
-      let ld = encoder.disposal.length
-      console.log(ld)
-      tf.dispose(encoder.disposal)
+      $.dispose(dispose, true)
       for(x in encoder.dispsosal) encoder.disposal.shift()//encoder.disposal.map(e => false).filter(Boolean)
     })
   }

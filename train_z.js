@@ -14,6 +14,7 @@ var input_shape = [batch_size,784]
 /* TODO
 
 z_mean and z_dev shall become small, depthy rnns
+convoluted idea:  use of conways GoL to colonize image around densities 
 
 */
 
@@ -34,7 +35,7 @@ decode_layers[l-1].activation = 'linear'
 //var decode_layers = [{size: 128, activation: 'linear'}, {size: 512, activation: 'sigmoid'},{size: 1024, activation: 'tanh'},{size: 1024 * 2, activation: 'tanh'}, {size: 784, activation: 'linear'}]
 
 //var lensing = rnn({input_shape, layers: [lens]})
-var convo = conv({input_shape, layers:[{size: 3}, {size: 9}]})
+var convo = conv({input_shape, layers:[{size: [3, 3], depth:9}, {size: [9, 9], depth: 1}]})
 
 var encoder = rnn({input_shape, depth:4, layers: encode_layers, ortho: true, xav:true})
 

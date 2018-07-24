@@ -57,6 +57,7 @@ function conv({input_shape, layers, input=undefined, ortho=false, xav=true}){
   $.assert(arguments['0'], ['input_shape', 'layers'])
 
   var lastOutput = input_shape[1] 
+  var lastDepth = input_shape[2] || 1 
   var variables = [] 
   var rootOp = function(input){return input}
   if(input){
@@ -72,14 +73,14 @@ function conv({input_shape, layers, input=undefined, ortho=false, xav=true}){
   var flow = layers.reduce((a, e) => {
     let config = e
     let size = config.size
-    if(!Array.isArray(size)) size = [size, size] // square
-    config.shape = [].concat(size, [config.dims || 1, config.dims || 1])
-    console.log(config.shape)
-    if(xav) config.dev = 1 / lastOutput
+    if(!Array.isArray(size)) size = [size, size] // square filter
+    config.shape = [].concat(size, [lastDepth, config.depth || 1])
+    if(xav) config.dev = 1 / lastDepth
     let {layer, activation} = $.variable(config)
     tf.keep(layer)
     variables.push(layer)
     lastOutput = config.size 
+    lastDepth = config.depth || 1
     let filter = $.conv2d(config) 
     let fn = a
     
@@ -89,7 +90,7 @@ function conv({input_shape, layers, input=undefined, ortho=false, xav=true}){
       return result
     }}, rootOp)    
 
-  var outputShape = [input_shape[0], lastOutput]
+  var outputShape = [input_shape].concat([lastDepth])
   return {flow, variables, outputShape, regularize}
 }
 

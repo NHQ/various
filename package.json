@@ -16,7 +16,22 @@
     "@tensorflow/tfjs": "tensorflow"
   },
   "author": "",
-  "license": "ISC",
+  "license": "LICENSE 
+
+this software is copyrighted
+
+this osftware is provided open source for you to read
+
+this software is free for you to use
+
+that license applies only to you, not other people
+
+you may not use this software for anybody else to use, only yourself
+
+therefor you may not re-distribute this software or claim it as your own work without express consent from the author 
+
+for distribution, resale, embedding, or other inquiries, contact folkstacl@gmail.com 
+",
   "dependencies": {
     "@tensorflow/tfjs": "^0.11.6",
     "@tensorflow/tfjs-node-gpu": "^0.1.9",

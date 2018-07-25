@@ -53,7 +53,7 @@ function rnn({input_shape, layers, depth=3, mag=.1, input=undefined, ortho=false
 
 }
 
-function conv({input_shape, layers, input=undefined, ortho=false, xav=true}){
+function conv({input_shape, layers, input=undefined, xav=true}){
   $.assert(arguments['0'], ['input_shape', 'layers'])
 
   var lastOutput = input_shape[1] 
@@ -76,9 +76,7 @@ function conv({input_shape, layers, input=undefined, ortho=false, xav=true}){
     if(!Array.isArray(size)) size = [size, size] // square filter
     config.shape = [].concat(size, [lastDepth, config.depth || 1])
     if(xav) config.dev = 1 / lastDepth
-    let {layer, activation} = $.variable(config)
-    tf.keep(layer)
-    variables.push(layer)
+    //tf.keep(layer)
     lastOutput = config.size 
     lastDepth = config.depth || 1
     let filter = $.conv2d(config) 
@@ -86,8 +84,7 @@ function conv({input_shape, layers, input=undefined, ortho=false, xav=true}){
     
     return function(input){
       let output = filter(fn(input)) 
-      let result = activation(output)
-      return result
+      return output
     }}, rootOp)    
 
   var outputShape = [input_shape].concat([lastDepth])

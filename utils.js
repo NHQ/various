@@ -18,7 +18,7 @@ function conv2d(params){
   params = configur8(params)
   let filter = variable(params)
   return function(input){
-    return tf.conv2d(input, filter.layer, params.strides, params.pad)
+    return filter.activation(tf.conv2d(input, filter.layer, params.strides, params.pad))
   }
 }
 
@@ -54,7 +54,7 @@ function assert(thing, whiches){
 }
 
 function configur8({
-  trainable=true, init='randomNormal', min=0, max=1, mean=0, dev=1, regularizer=false, activation='sigmoid', type='float32', 
+  trainable=true, init='randomNormal', min=0, max=1, mean=0, dev=1, regularizer=false, activation='tanh', type='float32', 
   strides=[1,1], pad='same', dilations=[0,0]
 }){
   // the idea here is to add these defined params to a configration that lacks them

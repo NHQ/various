@@ -24,8 +24,8 @@ convoluted idea:  use of conways GoL to colonize image around densities
 var lens = {size: 1024 * 2, activation: 'linear', init: 'orthoUniform', trianable: false}
 var encode_layers = [{size: 1024, activation: 'sigmoid'},{size: 512, activation: 'sigmoid'}, {size: 256, activation: 'sigmoid'},{size: 128, activation: 'sigmoid'}, {size: 10, activation: 'linear'}]
 
-var z_mean = $.initializers.orthoUniform({shape: [10,100], min: 0, max: 1})
-var z_dev= $.initializers.orthoUniform({shape: [10,100], min: 0, max: 1})
+var z_mean = tf.variable($.initializers.orthoUniform({shape: [10,100], min: 0, max: 1}), true)
+var z_dev= tf.variable($.initializers.orthoUniform({shape: [10,100], min: 0, max: 1}), true)
 
 var l = 8
 var d = new Array(l).fill(0)
@@ -82,8 +82,8 @@ function train(batch){
             let regen = encoder.variables.reduce((a, e) => tf.add($.regularize({input: e, l:.001, ll:.001}), a), $.scalar(0)).mul($.scalar(1/input_shape[0]))
 
             //let red = decoder.regularize()
-            var loss = tf.mean($.scalar(.5).add(tf.sum($.scalar(1).add(d).sub(tf.square(m)).sub(tf.square(tf.exp(d))), -1)))
-            var totes = tf.abs(loss).add(regen)
+            var loss = $.scalar(.5).mul(tf.sum(tf.square(m).add(tf.square(d)).sub(tf.log(tf.square(d))).sub($.scalar(1)), -1))
+            var totes = tf.mean(loss.add(regen))
             if(i % 10 == 0){ // print loss evey 500 train
               console.log(`current regularario  is: ${regen.dataSync()}`)
               console.log(`current loss is: ${totes.dataSync()}`)

@@ -101,7 +101,7 @@ function test(input){
   mnist.resetTest()
   for(var x = 0; x < 21; x++){
     var d = mnist.nextTrainBatch(1)
-    batch.push(d.image.reshape([1, input_shape[1]]))
+    batch.push(d.image)//.reshape([1, input_shape[1]]))
     labels.push(d.label.reshape([1, 10]))
   }
   

@@ -16,10 +16,11 @@ var disposal = []
 
 function conv2d(params){
   params = configur8(params)
-  let filter = variable(params)
-  return function(input){
-    return filter.activation(tf.conv2d(input, filter.layer, params.strides, params.pad))
-  }
+  let vars = variable(params)
+  let conv = params.transpose && false ? tf.conv2dTranspose : tf.conv2d
+  return {filter: function(input){
+    return vars.activation(conv(input, vars.layer, params.strides, params.pad))
+  }, vars}
 }
 
 

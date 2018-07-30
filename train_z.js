@@ -6,42 +6,27 @@ const tf = $.tf
 
 var mnist = require('./data.js') 
 
-var batch_size = 55//256 * 4
-var epochas = 3
+var batch_size =64//256 * 4
+var epochas = 12*2
 var sample_count = 10000 // using 10k training samples
 var input_shape = [batch_size,784]
-
+var z = 10
 /* TODO
-
 z_mean and z_dev shall become small, depthy rnns
 convoluted idea:  use of conways GoL to colonize image around densities 
-
 */
 
+var convo = conv({input_shape, layers:[{size: [1,1], depth: 9}, {size: [3, 3], depth:3, activation: 'relu'}, {size: [9, 9], depth: 1, activation: 'relu'}]})
 
-// "dense" returns a sequential multi-layer dense network; we create 2, one for encoder, one for decoder
-// tryint to reproduce https://stats.stackexchange.com/questions/190148/building-an-autoencoder-in-tensorflow-to-surpass-pca#answer-307746
-var lens = {size: 1024 * 2, activation: 'linear', init: 'orthoUniform', trianable: false}
-var encode_layers = [{size: 1024, activation: 'sigmoid'},{size: 512, activation: 'sigmoid'}, {size: 256, activation: 'sigmoid'},{size: 128, activation: 'sigmoid'}, {size: 10, activation: 'linear'}]
+var z_mean = dense({input_shape, layers: [{size: 10},{size: z, activation: 'erf', init: 'orthoNormal', trainable:true}]})
+var z_dev = dense({input_shape, layers: [{size: 10},{size: z, activation: 'erf', init: 'orthoNormal', trainable:true}]})
 
-var z_mean = tf.variable($.initializers.orthoUniform({shape: [10,100], min: 0, max: 1}), true)
-var z_dev= tf.variable($.initializers.orthoUniform({shape: [10,100], min: 0, max: 1}), true)
+var decode_layers = [{size: input_shape[1], activation: 'relu'}]
+var decoder = dense({input_shape: [batch_size, z], layers: decode_layers})
 
-var l = 8
-var d = new Array(l).fill(0)
+var rconvo = conv({input_shape: decoder.outputShape, layers:[{size: [9,9], depth: 9, activation: 'relu'},{size: [3, 3], depth:3, activation: 'relu'}, {size: [1, 1], depth: 1, activation: 'relu'}]})
 
-//var decode_layers = [{size: 128, activation: 'linear'}, {size: 512, activation: 'sigmoid'},{size: 1024, activation: 'tanh'},{size: 1024 * 2, activation: 'tanh'}, {size: 784, activation: 'linear'}]
 
-//var lensing = rnn({input_shape, layers: [lens]})
-var convo = conv({input_shape, layers:[{size: [3, 3], depth:9}, {size: [9, 9], depth: 1}]})
-var encoder = rnn({input_shape, depth:4, layers: encode_layers})
-var decode_layers = encode_layers.reverse()//d.map((e, i) => ({size: Math.min(input_shape[1], Math.floor(input_shape[1] / (l-1)) * (i +1))}))
-decode_layers[0].activation = 'tanh'
-decode_layers[4].activation = 'linear'
-decode_layers[4].size = input_shape[1]
-
-var decoder = rnn({input_shape: [batch_size, z_mean.shape[1]], layers: decode_layers})
-var rconvo = conv({input_shape: decoder.outputShape, layers:[{size: [3, 3], depth:1}, {size: [9, 9], depth: 1}].reverse()})
 var rate = .01
 var optimizer = tf.train.adam(rate)
 // run it
@@ -54,29 +39,27 @@ async function load_and_run(){
 }
 
 function feed_fwd(input, train, size){
-  //input= input.expandDims(2).expandDims(1).reshape([size || batch_size, Math.sqrt(input_shape[1]), Math.sqrt(input_shape[1]), 1])
   var conv = convo.flow(input, train) 
   conv = conv.reshape([size || batch_size, input_shape[1]])
-  var encoding = encoder.flow(conv, train)
-  //console.log(encoder)
-  var z = null// encoding.matMul(z_layer)
-  let m = encoding.dot(z_mean)
-  let d = encoding.dot(z_dev)
-  let sample = $.initializers.randomNormal({shape: m.shape, trainable: false}).mul(tf.exp(d)).add(m)
-  var result = rconvo.flow(decoder.flow(sample.reshape([size || batch_size, 100]), train).reshape([size || batch_size, 28, 28, 1]), train)
-  return {result, encoding, m, d}
+  
+  let m = z_mean.flow(conv, train)
+  let d = z_dev.flow(conv, train) 
+
+  // sample from mean and deviation
+  let sample = $.initializers.randomNormal({shape: m.shape, trainable: false}).mul(d).add(m)
+  
+  var result = rconvo.flow(decoder.flow(sample, train).reshape([size || batch_size, 28, 28, 1]), train)
+  
+  return {result,  m, d}
 }
 
 function train(batch){
   var batch = []
   var labels = []
   for(var x = 0; x < sample_count / batch_size; x++){
-      var d = mnist.nextTrainBatch(batch_size)
-    batch.push(d.image)//.reshape([batch_size, input_shape[1]]))
-    labels.push(d.label)//.reshape([batch_size, 10]))
-
-//    var d = $.variable({init: 'randomUniform', shape: [batch_size, input_shape[1]], trainable: false}).layer
-//    batch.push(d)
+    var d = mnist.nextTrainBatch(batch_size)
+    batch.push(d.image)
+    labels.push(d.label)
   }
   for(var x = 0; x < epochas; x++){
       tf.tidy(() => {
@@ -85,19 +68,16 @@ function train(batch){
         batch.forEach((input, i) => {
           _loss = _loss.add(optimizer.minimize(function(){
             let {result, encoding, m, d} = feed_fwd(input, true)
-            //let ren = encoder.regularize()
-            let regen = encoder.variables.reduce((a, e) => tf.add($.regularize({input: e, l:.001, ll:.001}), a), $.scalar(0)).mul($.scalar(1/input_shape[0]))
-
-            //let red = decoder.regularize()
             var reconLoss = tf.losses.meanSquaredError(input, result)
-            var loss = $.scalar(.5).mul(tf.sum(tf.square(m).add(tf.square(d)).sub(tf.log(tf.square(d))).sub($.scalar(1)), -1))
-            var totes = tf.mean(loss).add(reconLoss).add(regen)
-            if(i % 10 == 0){ // print loss evey 500 train
-              console.log(`current regularario  is: ${regen.dataSync()}`)
-              console.log(`current loss is: ${totes.dataSync()}`)
+            var KL_loss = tf.sum($.scalar(1).add(d).sub(tf.square(m)).sub(tf.exp(d)),1).mul($.scalar(-.5))
+            var totes = tf.mean(KL_loss.add(reconLoss))//.add(regen)
+            //let reg = [convo, rconvo, decoder].reduce((reg, topo) => reg.add(topo.regularize()), $.scalar(0))
+            if(i % 10 == 0){ 
+              //console.log(`current regularario  is: ${regen.dataSync()}`)
+              //console.log(`current loss is: ${totes.dataSync()}`)
             } 
-            $.dispose([totes, m, d, loss, regen])
-            return totes
+            $.dispose([totes, m, d, KL_loss])
+            return totes//.add(reg)
           }, true))
         })
       //_loss.print()
@@ -115,22 +95,38 @@ function train(batch){
 function test(input){
  // TODO: update for node backend 
   // reconstruct a few digits
-
   var batch = []
   var labels = []
   mnist.resetTest()
-  for(var x = 0; x < 21; x++){
+  var correct = 0
+  var wrong = 0
+  for(var x = 0; x < 10; x++){
     var d = mnist.nextTrainBatch(1)
-    batch.push(d.image)//.reshape([1, input_shape[1]]))
-    labels.push(d.label)//.reshape([1, 10]))
+    batch.push(d.image)
+    labels.push(d.label)
   }
-  
+
   batch.forEach((input, i) => {
-    var {result, encoding} = feed_fwd(input, false, 1)
+    var {result} = feed_fwd(input, false, 1)
+    /*
+    let loss = tf.losses.softmaxCrossEntropy(labels[i], encoding)
+    console.log('*****************************************************************')
+    let p = tf.argMax(encoding, 1).dataSync()[0]
+    let a = tf.argMax(labels[i], 1).dataSync()[0]
+    if(p==a) correct++
+    else wrong++
+    let m = `precidicted: ${p} \nactual: ${a}`
+    console.log(m)
+    encoding.print()
+    labels[i].print()
+    tf.mean(loss).print()
+    */
     var name = `pic-${i}.raw`
-    draw(input, 'input-' + name)
+//    draw(input, 'input-' + name)
     draw(result, 'result-' + name)
   })
+  console.log(`correct: ${correct}, wrong: ${wrong}, percentage: ${(correct/(correct+wrong))}`)
+  
 }
 
 // render a tensor to canvas and append

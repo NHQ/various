@@ -12,13 +12,17 @@ var input_shape = [batch_size,784]
 
 
 // 3 layer basic convolution (size is kernal, depth is number of filters)
-var convo = conv({input_shape, layers:[{size: [6, 6], depth:256, activation: 'relu'}, {size: [1,1], depth: 1, activation: 'relu'}]})
+var convo = conv({input_shape, layers:[{size: [9, 9], depth:64}, {size: [1,1], depth: 1}]})
 
 // layers for the dense network
-var encode_layers = [{size: 64}, {size: 10, activation: 'linear'}]
+var encode_layers = [{size: 64, depth:9}, {size: 10, activation: 'linear'}]
 
 // dense encoder
-var encoder = dense({input_shape, layers: encode_layers})
+var encoder = rnn({input_shape, layers: encode_layers})
+
+var decoder = dense({input_shape: encoder.outputShape, layers: [{size: input_shape[1], activation:'linear'}]})
+
+var deconv = conv({input_shape, layers: [{size: [9,9], depth: 64, transpose: true}, {size: [1,1], depth: 1, transpose: true}]})
 
 var rate = .01
 var optimizer = tf.train.adam(rate)
@@ -40,7 +44,9 @@ function feed_fwd(input, train, size){
 
   var encoding = encoder.flow(conv, train) 
   
-  return {encoding}
+  var result = deconv.flow(decoder.flow(encoding, train).reshape(input.shape), train)
+
+  return {result, encoding}
 }
 
 function train(batch){
@@ -54,29 +60,31 @@ function train(batch){
 
   for(var x = 0; x < epochas; x++){
     tf.tidy(() => {
-      var _loss = $.scalar(0)
+      var _loss
       var dispose = []
       batch.forEach((input, i) => {
-        _loss = _loss.add(optimizer.minimize(function(){
-          let {encoding} = feed_fwd(input, true)
+        _loss = optimizer.minimize(function(){
+          let {result, encoding} = feed_fwd(input, true)
           let reg = encoder.regularize().add(convo.regularize())
+          let reconLoss = tf.abs(tf.mean(tf.sum(tf.sub(input, result), 1)))
+          //let reconLoss = tf.sum(tf.add(tf.mul(input, tf.log(tf.add($.scalar(1e-8), result))), tf.mul(tf.sub($.scalar(1), input), tf.log(tf.add($.scalar(1e-8), tf.sub($.scalar(1), result))))), 1)
           let encodeLoss = tf.mean(tf.losses.softmaxCrossEntropy(labels[i], encoding))
           if(i % 10 == 0){ // print loss every ith train
             console.log('***************************************************************')
             console.log(`current encode loss is: ${tf.mean(encodeLoss).dataSync()}`)
+            console.log(`current recon loss is: ${reconLoss.dataSync()}`)
            // encoding.print()
            
           } 
           // garbage collection 
           $.dispose([encodeLoss, encoding])
 
-          return encodeLoss
-        }, true))
+          return encodeLoss.add(reconLoss)
+        }, true)
       })
 
       console.log(`\ntf memory is ${JSON.stringify(tf.memory())}`)
-      console.log(`average loss after epoch ${(x+1)}:\n`)
-      _loss.div($.scalar(batch.length)).print()
+      console.log(`loss after epoch ${(x+1)}: ${_loss.dataSync()[0]}\n`)
       
       mnist.resetTraining()
       $.dispose(dispose, true)

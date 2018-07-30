@@ -79,7 +79,8 @@ function conv({input_shape, layers, input=undefined, xav=true}){
     //tf.keep(layer)
     lastOutput = config.size 
     lastDepth = config.depth || 1
-    let filter = $.conv2d(config) 
+    let {filter, vars} = $.conv2d(config) 
+    variables.push(vars.layer)
     let fn = a
     
     return function(input){

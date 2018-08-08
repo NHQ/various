@@ -1,5 +1,6 @@
 var {dense, rnn, conv} = require('./topo.js')
 var $ = require('./utils.js')
+var load = require('./load.js')
 var fs = require('fs')
 var tab = require('typedarray-to-buffer')
 const tf = $.tf

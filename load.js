@@ -1,7 +1,7 @@
 var fs = require('fs')
-var bta = require('buffer-to-typedarray')
-var jbuff = require('buffers')
-var walk = require('walker')
+//var jbuff = require('buffers')
+var walk = require('klaw-sync')
+
 var $ = require('./utils')
 
 /*  flow: load bin size per each beat per each song
@@ -11,60 +11,64 @@ var $ = require('./utils')
     or put all the buffers together with jbuffers
 */
 
-function load(path='.'){
+let next = load('./data')()
 
-  var dirs = {}
+for(var i = 0; i < 10000; i++) console.log(new Float32Array(next()[1])[255])
 
-  walk(path).on('directory', function(dir, stat){
-    dirs[dir] = {}
-    var meta = require(dir + '/meta.json')
-    dirs[dir].meta = meta
-    
-  })
-  let dk = Object.keys(dirs)
-  return function(batchSize=dk.length, binSize=256){
+
+function load(path='.', cb){
+
+  var tree = {}
+
+  var dirs = walk(path, {nofile: true})
+
+  dirs.forEach(dir => tree[dir.path] = require(dir.path + '/meta.json'))
+  dirs = dirs.map(e => e.path)
+
+  return function(batchSize=dirs.length, binSize=256){
     let batch = []
     while(batch.length < batchSize){
-      let b = dk[Math.floor(Math.rabdon() * dk.length)]
-      if(!batch.includes(b)) batch.push(dirs[b])
+      let b = dirs[Math.floor(Math.random() * dirs.length)]
+      if(!batch.includes(tree[b])) batch.push(tree[b])
     }
    
-    index = 0
-    bindex = 0
-
+    var index = 0
+    var bindex = 0
+    // batch of directory meta files, each directory full of chopped up samples
+    // after this map, the meta will include fd's for to fs.read
+    // possibly reduce to a function that returns tensor [batchSize, binSize]
     batch = batch.map(meta => {
       meta.fd = [] 
       meta.files.forEach((e, i) => {
-        let d = {start: meta.times[i] - (meta.times[i-1] || 0), end: meta.times[i]} 
+        let d = {start: meta.onsets[i], end: meta.onsets[i+1] || 0} 
         d.fd = fs.openSync(e, 'r')
         d.stat = fs.statSync(e)
+        d.index = 0
+        d.length = d.stat.size / 4
         meta.fd.push(d)
-        //meta.fd[e].buffer = fs.readFileSync(e)
       })
+      return meta
     })
-    function nextBatch(){
-        
+    //console.log(batch)
+    function nextBatch(binSize=256){
+      //  need to go thru batch and return bin size at offset, push offset
+      //  check fd has size remaining for bin, if not, get the most and move to the next fd
+      return batch.map(e => {
+        f = e.fd[0]
+        let buf = new Buffer(binSize * 4)
+        var read = fs.readSync(f.fd, buf, 0, binSize*4, f.index) 
+        f.index += read
+        if(read < binSize){
+          f.index = 0
+          e.fd.shift()
+          e.fd.push(f)
+          f = e.fd[0]
+          read = fs.readSync(f.fd, buf, read, (binSize-read) * 4, f.index) 
+          f.index += read 
+        }
+        return buf.buffer
+      })    
     }
     return nextBatch 
   }
-
-
-  /* TODO perhaps load all samples if one song only, then read over them cicularly % bin size 
-  */
-
-
-  function loadNext(cb){
-    fs.readFile(meta.files[index++%meta.files.length], (e, r) => e ? cb(e, null) : cb(e, bta(r)))
-  }
-
-  function loadBatch(bin=256, cb){
-    let samples = []
-    bin = bin*4 // float32 only
-    let buff = new Buffer(bin)
-    fs.readSync((meta.fd[meta.files[index++%meta.files.length]], buff, 0, bin, bindex+bin))
-    samples.push(bta(buff)) 
-    bindex+=bin
-    cb(null, $.tf.stack(samples.map(e => $.tf.tensor1d(e))))
-  }
-
 }

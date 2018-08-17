@@ -6,7 +6,7 @@ var mnist = require('./data.js')
 
 //  training variables
 var batch_size = 56
-var epochas = 6
+var epochas = 12
 var sample_count = 10000 // using 10k training samples
 var input_shape = [batch_size,784]
 
@@ -20,7 +20,7 @@ var encode_layers = [{size: 64}, {size: 10, activation: 'linear'}]
 // dense encoder
 var encoder = dense({input_shape, layers: encode_layers})
 
-var rate = .01
+var rate = .0051
 var optimizer = tf.train.adam(rate)
 
 // run it

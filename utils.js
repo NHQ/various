@@ -1,18 +1,24 @@
+var fs = require('fs')
 Math.random = require('math-random')
 Error.stackTraceLimit = Infinity
 const tf = require('@tensorflow/tfjs')
 require('@tensorflow/tfjs-node-gpu')
+var atob = require('arraybuffer-to-buffer')
 
 tf.linear = rootOp
 
 const init = initializers = {configur8, orthoNormal, orthoUniform, orthoTruncated, randomNormal, randomUniform, randomTruncated}
 
-module.exports = {tf, conv2d, gc, regularize, scalar, dispose, variable, initializers, init, combinatorial, nextTick, createRollMatrix, assert}
+module.exports = {tf, conv2d, gc, regularize, scalar, dispose, variable, initializers, init, combinatorial, nextTick, createRollMatrix, assert, a0}
 
 function rootOp(input){return input}
 
 const scalars = {}
 var disposal = []
+
+function a0(x){
+  return Array(x).fill(0)
+}
 
 function conv2d(params){
   params = configur8(params)
@@ -92,8 +98,24 @@ function variable(config){
   let params = configur8(config)
   let init = initializers[params.init]
   let activation = tf[params.activation] 
-  let layer = tf.variable(init(params), params.trainable)
-  return {layer,  activation}
+  var layer
+  var pid = undefined
+  if(params.id){ // try load
+    try{
+      fs.accessSync(pid = './data/' + params.id)
+      layer = new Float32Array(fs.readFileSync(pid).buffer)
+      layer = tf.tensor(layer, params.shape, params.type)
+    } catch (err){
+      layer = init(params)
+    }
+  } else layer = init(params)
+  layer = tf.variable(layer, params.trainable)
+  function save(path){
+    fs.writeFile(path || pid, atob(layer.dataSync().buffer), function(e,r){
+      if(e) console.log(e)
+    })
+  }
+  return {layer,  activation, save}
 }
 
 async function nextTick(fn){ await tf.nextFrame(); fn()}

@@ -20,6 +20,7 @@
   "dependencies": {
     "@tensorflow/tfjs": "^0.11.6",
     "@tensorflow/tfjs-node-gpu": "^0.1.9",
+    "arraybuffer-to-buffer": "0.0.4",
     "ascjsify": "^1.0.0",
     "babel-cli": "^6.26.0",
     "babel-preset-node6": "^11.0.0",

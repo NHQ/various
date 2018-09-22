@@ -56,8 +56,8 @@ function rnn({input_shape, layers, depth=3, mag=.1, input=undefined, ortho=false
 function conv({input_shape, layers, input=undefined, xav=true}){
   $.assert(arguments['0'], ['input_shape', 'layers'])
 
-  var lastOutput = input_shape[1] 
-  var lastDepth = input_shape[2] || 1 
+  var lastOutput = input_shape[2] 
+  var lastDepth = input_shape[3] || 1 
   var variables = [] 
   var rootOp = function(input){return input}
   if(input){

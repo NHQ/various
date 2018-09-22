@@ -227,8 +227,9 @@ class MnistDataset {
     let labelOffset = 0;
     while ((isTrainingData ? this.trainBatchIndex : this.testBatchIndex) <
            batchIndexMax) {
-      images.set(this.dataset[imagesIndex][this.trainBatchIndex], imageOffset);
-      labels.set(this.dataset[labelsIndex][this.trainBatchIndex], labelOffset);
+      var batchIndex = isTrainingData ? this.trainBatchIndex : this.testBatchIndex
+      images.set(this.dataset[imagesIndex][batchIndex], imageOffset);
+      labels.set(this.dataset[labelsIndex][batchIndex], labelOffset);
 
       isTrainingData ? this.trainBatchIndex++ : this.testBatchIndex++;
       imageOffset += IMAGE_FLAT_SIZE;

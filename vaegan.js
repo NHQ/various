@@ -21,10 +21,6 @@ z_mean and z_dev shall become small, depthy rnns
 convoluted idea:  use of conways GoL to colonize image around densities 
 */
 
-let cnn_layers = [{size: [3,3], depth:32, activation: 'relu'}, {size: [9,9], depth:16}, {size: [27,27], depth: 8}].reverse()
-
-let cnn = conv({input_shape: [batch_size, 1311, binSize, dimension ], layers: cnn_layers})
-
 let rnn_layers = [{size: z, depth:1, activation: 'sigmoid'}]
 
 var z_mean = dense({input_shape: [batch_size * binSize, z], layers: rnn_layers })
@@ -33,7 +29,7 @@ var z_dev = dense({input_shape: [batch_size * binSize, z], layers: rnn_layers})
 var decode_layers = [{size: binSize, depth: 1}]
 var decoder = rnn({input_shape: [batch_size, z], layers: decode_layers})
 
-var rate = .0002
+var rate = .002
 var optimizer = tf.train.adam(rate)
 // run it
 load_and_run()
@@ -45,7 +41,6 @@ async function load_and_run(){
 }
 
 function feed_fwd(input, train, size){
-  let c = cnn.flow(input).reshape([-1, z])
   let m = z_mean.flow(c, train)
   let d = z_dev.flow(c, train) 
 
@@ -59,15 +54,14 @@ function feed_fwd(input, train, size){
 
 
 function train(){
-  const rollers = [2,3,5,8,13,21]
-  const rolls = rollers.map((e,i) => {
-    return $.createRollMatrix(binSize, e)
-  })
   for(var x = 0; x < epochas; x++){
       tf.tidy(() => {
         var batch = Array(batch_size).fill(0).map(e => nextBatch(binSize))
         let signal = tf.stack(batch.map(e => e.signal))
+        signal.print()
         let time = tf.stack(batch.map(e => e.time), null)
+        time.print()
+        process.exit()
         var rolled = rolls.map((e, i) => {
           let howmany = Math.floor(binSize / rollers[i])
           let rolled = []

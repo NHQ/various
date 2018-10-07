@@ -6,15 +6,20 @@ require('@tensorflow/tfjs-node-gpu')
 var atob = require('arraybuffer-to-buffer')
 
 tf.linear = rootOp
+var log = console.log
 
 const init = initializers = {configur8, orthoNormal, orthoUniform, orthoTruncated, randomNormal, randomUniform, randomTruncated}
 
-module.exports = {tf, conv2d, gc, regularize, scalar, dispose, variable, initializers, init, combinatorial, nextTick, createRollMatrix, assert, a0}
+module.exports = {log, jsdft, dft, harmonic, mag, tf, conv2d, gc, regularize, scalar, dispose, variable, initializers, init, combinatorial, nextTick, createRollMatrix, assert, a0}
 
 function rootOp(input){return input}
 
 const scalars = {}
 var disposal = []
+
+function mag(a,b){
+  return tf.sqrt(tf.square(a).add(tf.square(b)))
+}
 
 function a0(x){
   return Array(x).fill(0)
@@ -144,8 +149,27 @@ function orthoUniform({shape, min=-1, max=1, type='float32'}){
   return tf.linalg.gramSchmidt(tf.randomUniform(shape, min, max, type))
 }
 
+function harmonic(base=27.5, size=100){
+  let y = new Float32Array(size)
+  for(var x = 0; x < size; x++){
+    y[x] = base * Math.pow(2, x/12)
+  }
+  return tf.linspace(0, size-1, size).reshape([1,size])
+  return tf.tensor(y, [1, size])
+}
 
+function dft(t, f, sr){
+  var y = tf.neg(t.matMul(f))
+  let sin = $ => $.matMul(tf.sin(y))
+  let cos = $ => $.matMul(tf.cos(y))
+  return {cos, sin}
 
+}
+function jsdft(x, k, sr){
+   
+  let y = x.map((e,i)=>[e*Math.cos(-(Math.PI * 2 * i * k / sr)), e*Math.sin(-(Math.PI * 2 * k * i /sr))])
+  return y
+}
 
 function createRollMatrix(s, t){
 

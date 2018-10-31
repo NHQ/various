@@ -24,7 +24,7 @@ if(test){
 
 module.exports = load
 
-function load(path='./data', batchSize){
+function load(path='./data'){
 
   var tree = {}
 
@@ -33,7 +33,8 @@ function load(path='./data', batchSize){
   dirs.forEach(dir => tree[dir.path] = require(dir.path + '/meta.json'))
   dirs = dirs.map(e => e.path)
 
-  return (function(batchSize=dirs.length){
+  batchSize = dirs.length
+  return (function(batchSize){
     let batch = []
     while(batch.length < batchSize){
       let b = dirs[Math.floor(Math.random() * dirs.length)]
@@ -58,7 +59,7 @@ function load(path='./data', batchSize){
       return meta
     })
     //console.log(batch)
-    function nextBatch(binSize=256, dims=2, bytes=4){
+    function nextBatch(binSize=256, dims=1, bytes=4){
       //  need to go thru batch and return bin size at offset, push offset
       //  check fd has size remaining for bin, if not, get the most and move to the next fd
       let totes = binSize * bytes * dims
@@ -76,15 +77,15 @@ function load(path='./data', batchSize){
           read = fs.readSync(f.fd, buf, read, totes-read, f.index) 
           f.index += read 
         }
-        return tf.tensor(new Float32Array(buf.buffer), [1, binSize, dims])
+        return tf.tensor(new Float32Array(buf.buffer), [1, binSize])
       }))    
       $.dispose(stack)
-      let signal = tf.squeeze(stack.slice([0,0,0,1]))//.reshape([-1, binSize])
+      let signal = tf.squeeze(stack)//.reshape([-1, binSize])
 
-      let time = tf.squeeze(stack.slice([0,0,0,0], [batch.length,1,binSize,1]))//.reshape([-1, binSize])
+      //let time = tf.squeeze(stack.slice([0,0,0,0], [batch.length,1,binSize,1]))//.reshape([-1, binSize])
 
-      return {signal, time}
+      return {signal}
     }
-    return nextBatch 
+    return {nextBatch, batchSize} 
   })(batchSize)
 }

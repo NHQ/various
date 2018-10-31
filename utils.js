@@ -4,18 +4,23 @@ Error.stackTraceLimit = Infinity
 const tf = require('@tensorflow/tfjs')
 require('@tensorflow/tfjs-node-gpu')
 var atob = require('arraybuffer-to-buffer')
+var $ = require('./cheatcode.js')
 
 tf.linear = rootOp
 var log = console.log
 
-const init = initializers = {configur8, orthoNormal, orthoUniform, orthoTruncated, randomNormal, randomUniform, randomTruncated}
+const init = initializers = {harmonic, orthoNormal, orthoUniform, orthoTruncated, randomNormal, randomUniform, randomTruncated}
 
-module.exports = {log, jsdft, dft, harmonic, mag, tf, conv2d, gc, regularize, scalar, dispose, variable, initializers, init, combinatorial, nextTick, createRollMatrix, assert, a0}
+module.exports = {tautime, log, jsdft, dft, harmonic, phase, mag, tf, conv2d, gc, regularize, scalar, dispose, variable, initializers, init, combinatorial, nextTick, createRollMatrix, assert, a0}
 
 function rootOp(input){return input}
 
 const scalars = {}
 var disposal = []
+
+function phase(a,b){
+  return tf.atan2(a, b)//.div(scalar(Math.PI).div(scalar(2)))
+}
 
 function mag(a,b){
   return tf.sqrt(tf.square(a).add(tf.square(b)))
@@ -107,19 +112,22 @@ function variable(config){
   var pid = undefined
   if(params.id){ // try load
     try{
-      fs.accessSync(pid = './data/' + params.id)
+      fs.accessSync(pid = './filters/' + params.id)
       layer = new Float32Array(fs.readFileSync(pid).buffer)
       layer = tf.tensor(layer, params.shape, params.type)
+      console.log('loaded', layer)
     } catch (err){
       layer = init(params)
     }
   } else layer = init(params)
   layer = tf.variable(layer, params.trainable)
+  layer.save = save
   function save(path){
-    fs.writeFile(path || pid, atob(layer.dataSync().buffer), function(e,r){
+    fs.writeFile('./filters/' + params.id, atob(layer.dataSync().buffer), function(e,r){
       if(e) console.log(e)
     })
   }
+  if(params.id) save()
   return {layer,  activation, save}
 }
 
@@ -149,16 +157,30 @@ function orthoUniform({shape, min=-1, max=1, type='float32'}){
   return tf.linalg.gramSchmidt(tf.randomUniform(shape, min, max, type))
 }
 
-function harmonic(base=27.5, size=100){
+function harmonic({base=27.5, size=100, shape=[1,100]}){
   let y = new Float32Array(size)
   for(var x = 0; x < size; x++){
     y[x] = base * Math.pow(2, x/12)
   }
-  return tf.linspace(0, size-1, size).reshape([1,size])
-  return tf.tensor(y, [1, size])
+  return tf.tensor(y, shape)
 }
 
-function dft(t, f, sr){
+function tautime(z, sr){
+  var t = tf.tensor(Array(z).fill(0).map((e,i)=> i / sr), [1, z]).reshape([z,1])//, z, z).div($.scalar(sampleRate))
+  return t.mul(scalar(Math.PI * 2))
+}
+
+function dft(t, f){
+  let y = tf.neg(t.matMul(f))
+  let s = tf.sin(y)
+  let c = tf.cos(y)
+  let sin = $ => $.matMul(s)
+  let cos = $ => $.matMul(c)
+  return {cos, sin}
+
+}
+
+function dft(t, f){
   var y = tf.neg(t.matMul(f))
   let sin = $ => $.matMul(tf.sin(y))
   let cos = $ => $.matMul(tf.cos(y))

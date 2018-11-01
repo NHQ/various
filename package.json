@@ -27,8 +27,7 @@
     "browserify-shim": "^3.8.14",
     "klaw-sync": "^4.0.0",
     "math-random": "^1.0.1",
-    "typedarray-to-buffer": "^3.1.5",
-    "walker": "^1.0.7"
+    "typedarray-to-buffer": "^3.1.5"
   },
   "devDependencies": {}
 }

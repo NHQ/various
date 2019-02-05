@@ -5,15 +5,6 @@ module.exports = {dense, rnn, conv}
 
 const scalar_zero = tf.variable(tf.scalar(0, 'float32'), false) 
 
-function lsmt({input_shape, layers, depth=3, mag=.1, input=undefined, ortho=false, xav=true}){
-
-  
-  let cellfn = function(input){
-    
-  }
-
-}
-
 function rnn({input_shape, layers, depth=3, mag=.1, input=undefined, ortho=false, xav=true, cellfn=null}){
   $.assert(arguments['0'], ['input_shape', 'layers'])
   
@@ -163,5 +154,14 @@ function dense({input_shape, layers, input=undefined, ortho=false, xav=true}){
 
   var outputShape = [input_shape[0], lastOutput]
   return {flow, variables, outputShape, regularize, save}
+}
+
+function lsmt({input_shape, layers, depth=3, mag=.1, input=undefined, ortho=false, xav=true}){
+
+  
+  let cellfn = function(input){
+    
+  }
+
 }
 

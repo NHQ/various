@@ -9,9 +9,9 @@ var $ = require('./cheatcode.js')
 tf.linear = rootOp
 var log = console.log
 
-const init = initializers = {harmonic, orthoNormal, orthoUniform, orthoTruncated, randomNormal, randomUniform, randomTruncated}
+const init = initializers = {harmonic, orthoNormal, orthoUniform, orthoTruncated, randomNormal, randomUniform, randomTruncated, zeros, ones}
 
-module.exports = {tautime, log, jsdft, dft, harmonic, phase, mag, tf, conv2d, gc, regularize, scalar, dispose, variable, initializers, init, combinatorial, nextTick, createRollMatrix, assert, a0}
+module.exports = {tautime, log, jsdft, dft, harmonic, phase, mag, tf, conv2d, gc, regularize, scalar, dispose, variable, initializers, init, combinatorial, nextTick, createRollMatrix, assert, a0, invertMask}
 
 function rootOp(input){return input}
 
@@ -32,11 +32,12 @@ function a0(x){
 
 function conv2d(params){
   params = configur8(params)
-  let vars = variable(params)
+  let {layer, activation, saver} = variable(params)
+  let pool = function(input){ return params.pool.fn(input, params.pool.size, params.pool.strides, params.pool.pad)}
   let conv = params.transpose && false ? tf.conv2dTranspose : tf.conv2d
   return {filter: function(input){
-    return vars.activation(conv(input, vars.layer, params.strides, params.pad))
-  }, vars}
+    return activation(pool(conv(input, layer, params.strides, params.pad, 'NHWC', params.dilations)))
+  }, layer, pool, activation, saver}
 }
 
 
@@ -72,7 +73,8 @@ function assert(thing, whiches){
 
 function configur8({
   trainable=true, init='randomNormal', min=0, max=1, mean=0, dev=1, regularizer=false, activation='tanh', type='float32', 
-  strides=[1,1], pad='same', dilations=[0,0]
+  strides=[1,1], pad='same', dilations=[1,1], 
+  defaultPool={fn: rootOp, size: 1, strides: 1, pad: 'same'}
 }){
   // the idea here is to add these defined params to a configration that lacks them
   // so that from this point on, the API has uniform arrity and zero missing params...
@@ -89,6 +91,7 @@ function configur8({
   config['pad'] = pad 
   config['strides'] = strides 
   config['dilations'] = dilations
+  config['pool'] = (config.pool && true) ? {...defaultPool, ...config.pool} : defaultPool
   //assert(config, 'shape')
   //assert(config, 'layers')
   return config
@@ -113,25 +116,37 @@ function variable(config){
   if(params.id){ // try load
     try{
       fs.accessSync(pid = './filters/' + params.id)
-      layer = new Float32Array(fs.readFileSync(pid).buffer)
-      layer = tf.tensor(layer, params.shape, params.type)
-      console.log('loaded', layer)
+      console.log(params)
+      var buf = fs.readFileSync(pid)
+      console.log(buf.length, buf.buffer.byteLength)
+      buf = new Float32Array(buf.buffer.slice(0,buf.length))
+      layer = tf.tensor(buf, params.shape, params.type)
+      console.log('loaded layer id: ' + params.id)
     } catch (err){
+      console.log(err)
       layer = init(params)
     }
   } else layer = init(params)
   layer = tf.variable(layer, params.trainable)
-  layer.save = save
-  function save(path){
+  var saver = function(){
+    //console.log(params.id, layer)
     fs.writeFile('./filters/' + params.id, atob(layer.dataSync().buffer), function(e,r){
       if(e) console.log(e)
     })
   }
-  if(params.id) save()
-  return {layer,  activation, save}
+  //if(params.id) save()
+  return {layer,  activation, saver}
 }
 
 async function nextTick(fn){ await tf.nextFrame(); fn()}
+
+function zeros({shape, type}){
+  return tf.zeros(shape, type)
+}
+
+function ones({shape, type}){
+  return tf.ones(shape, type)
+}
 
 function randomNormal({shape, mean=0, dev=1, type='float32'}){
   return tf.randomNormal(shape, mean, dev, type)
@@ -191,6 +206,11 @@ function jsdft(x, k, sr){
    
   let y = x.map((e,i)=>[e*Math.cos(-(Math.PI * 2 * i * k / sr)), e*Math.sin(-(Math.PI * 2 * k * i /sr))])
   return y
+}
+
+// inverts a one-hot mask (such as the identity matrix, or eye)
+function invertMask(mask){
+  return mask.add(scalar(1)).sub(scalar(2)).mul(scalar(-1))
 }
 
 function createRollMatrix(s, t){

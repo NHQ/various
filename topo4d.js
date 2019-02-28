@@ -5,7 +5,7 @@ module.exports = {dense, rnn, conv}
 
 const scalar_zero = tf.variable(tf.scalar(0, 'float32'), false) 
 
-function rnn({input_shape, layers, depth=3, mag=.1, input=undefined, ortho=false, xav=true, cellfn=null}){
+function rnn({input_shape, layers, depth=3, mag=.1, input=undefined, ortho=false, xav=true}){
   $.assert(arguments['0'], ['input_shape', 'layers'])
   
   var lastOutput = input_shape[1] 
@@ -19,15 +19,12 @@ function rnn({input_shape, layers, depth=3, mag=.1, input=undefined, ortho=false
   function regularize(){
     return variables.reduce((a, e) => tf.add($.regularize({input: e, l:.001, ll:.001}), a), $.scalar(0)).mul($.scalar(1/input_shape[0]))
   }
-  function save(){
-    variables.forEach(e=>e.save())
-  }
-  var flow = layers.reduce((a, e, i) => {
+  var flow = layers.reduce((a, e) => {
     let config = e
     config.shape = [lastOutput, config.size] 
-    //  let scalar_mag = tf.variable(tf.scalar(mag, 'float32'), false) // ¿trainable?
+    let scalar_mag = tf.variable(tf.scalar(mag, 'float32'), false) // ¿trainable?
     var feedback = new Array(depth).fill(0).map(e => tf.zeros([1, config.size])) 
-    var fb_w = new Array(depth).fill(0).map(e => $.variable({dev: !(xav) ? 1 : 1 / lastOutput, id: config.id ? config.id + i:false, shape: [config.size, config.size], trainable: true}).layer ) 
+    var fb_w = new Array(depth).fill(0).map(e => $.variable({dev: !(xav) ? 1 : 1 / lastOutput, shape: [config.size, config.size], trainable: true}).layer ) 
     if(xav) config.dev = 1 / lastOutput
     let {layer, activation} = $.variable(config)
     variables.push(layer)
@@ -36,8 +33,7 @@ function rnn({input_shape, layers, depth=3, mag=.1, input=undefined, ortho=false
     
     let fn = a
 
-
-
+    
     return function(input, train=false){
       var output = fn(input, train).matMul(layer)
       if(train){
@@ -46,29 +42,14 @@ function rnn({input_shape, layers, depth=3, mag=.1, input=undefined, ortho=false
         output = output.add(prev)
         $.dispose([feedback[0]]) 
         feedback.shift()
-        if(cellfn){
-          output = cellfn(output)
-        }
         feedback.push(tf.variable(output, false))
         $.dispose(fb)
       } // else if generate, sum the feedbacks to gen_count dimensions each 
-      else{ // take mean of feedback and splash it onto n input samples
-        var fb = feedback.map((e,i) => e.matMul(fb_w[i]))
-        var prev = fb.reduce((a, e) => tf.mean(tf.sigmoid(e.add(a)), scalar_zero), 1)
-        output = output.add(prev)
-        $.dispose([feedback[0]]) 
-        feedback.shift()
-        if(cellfn){
-          output = cellfn(output)
-        }
-        feedback.push(tf.variable(output, false))
-        $.dispose(fb)
-      }
       return activation(output)
     }}, rootOp)    
 
   var outputShape = [input_shape[0], lastOutput]
-  return {flow, variables, outputShape, disposal, regularize, save}
+  return {flow, variables, outputShape, disposal, regularize}
 
 }
 
@@ -77,7 +58,7 @@ function conv({input_shape, layers, input=undefined, xav=true}){
 
   var lastOutput = input_shape[2] 
   var lastDepth = input_shape[3] || 1 
-  var variables = [], saves = [] 
+  var variables = [] 
   var rootOp = function(input){return input}
   if(input){
     rootOp = input.flow
@@ -85,10 +66,7 @@ function conv({input_shape, layers, input=undefined, xav=true}){
   }
 
   function regularize(){
-    variables = variables.map(e=> e.mul(variables.reduce((a, e) => tf.add($.regularize({input: e}), a), $.scalar(0))
-  ))}
-  function save(){
-    saves.forEach((e,i)=>e())
+    return variables.reduce((a, e) => tf.add($.regularize({input: e}), a), $.scalar(0))
   }
   
 
@@ -101,18 +79,17 @@ function conv({input_shape, layers, input=undefined, xav=true}){
     //tf.keep(layer)
     lastOutput = config.size 
     lastDepth = config.depth || 1
-    let {filter, layer, pool, activation, saver} = $.conv2d(config) 
-    variables.push(layer)
-    saves.push(saver)
+    let {filter, vars} = $.conv2d(config) 
+    variables.push(vars.layer)
     let fn = a
     
     return function(input){
-      let output = filter(fn(input))
+      let output = filter(fn(input)) 
       return output
     }}, rootOp)    
 
   var outputShape = [input_shape].concat([lastDepth])
-  return {flow, variables, outputShape, regularize, save}
+  return {flow, variables, outputShape, regularize}
 }
 
 
@@ -120,7 +97,7 @@ function dense({input_shape, layers, input=undefined, ortho=false, xav=true}){
   $.assert(arguments['0'], ['input_shape', 'layers'])
 
   var lastOutput = input_shape[1] 
-  var variables = [], saves = [] 
+  var variables = [] 
   var rootOp = function(input){return input}
   if(input){
     rootOp = input.flow
@@ -128,20 +105,16 @@ function dense({input_shape, layers, input=undefined, ortho=false, xav=true}){
   }
 
   function regularize(){
-    variables = variables.map(e => e.mul(variables.reduce((a, e) => tf.add($.regularize({input: e}), a), $.scalar(0))))
+    return variables.reduce((a, e) => tf.add($.regularize({input: e}), a), $.scalar(0))
   }
   
-  function save(){
-    saves.forEach((e,i)=>e(variables[i]))
-  }
-  
+
   var flow = layers.reduce((a, e) => {
     let config = e
     config.shape = [lastOutput, config.size] 
     if(xav) config.dev = 1 / lastOutput
-    let {layer, activation, saver} = $.variable(config)
+    let {layer, activation} = $.variable(config)
     tf.keep(layer)
-    saves.push(saver)
     variables.push(layer)
     lastOutput = config.size 
     
@@ -154,15 +127,6 @@ function dense({input_shape, layers, input=undefined, ortho=false, xav=true}){
     }}, rootOp)    
 
   var outputShape = [input_shape[0], lastOutput]
-  return {flow, variables, outputShape, regularize, save}
-}
-
-function lsmt({input_shape, layers, depth=3, mag=.1, input=undefined, ortho=false, xav=true}){
-
-  
-  let cellfn = function(input){
-    
-  }
-
+  return {flow, variables, outputShape, regularize}
 }
 

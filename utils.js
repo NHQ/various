@@ -3,6 +3,7 @@ Math.random = require('math-random')
 Error.stackTraceLimit = Infinity
 const tf = require('@tensorflow/tfjs')
 require('@tensorflow/tfjs-node-gpu')
+//require('@tensorflow/tfjs-node-gpu')
 var atob = require('arraybuffer-to-buffer')
 var $ = require('./cheatcode.js')
 
@@ -72,7 +73,7 @@ function assert(thing, whiches){
 }
 
 function configur8({
-  trainable=true, init='randomNormal', min=0, max=1, mean=0, dev=1, regularizer=false, activation='tanh', type='float32', 
+  trainable=true, init='randomNormal', min=0, max=1, mean=0, dev=1, regularizer=false, activation='relu', type='float32', 
   strides=[1,1], pad='same', dilations=[1,1], 
   defaultPool={fn: rootOp, size: 1, strides: 1, pad: 'same'}
 }){
@@ -84,14 +85,14 @@ function configur8({
   config['mean'] = mean 
   config['dev'] = dev
   config['min'] = min 
-  config['mac'] = max
+  config['max'] = max
   config['type'] = type
   config['regularizer'] = regularizer
   config['activation'] = activation
   config['pad'] = pad 
   config['strides'] = strides 
   config['dilations'] = dilations
-  config['pool'] = (config.pool && true) ? {...defaultPool, ...config.pool} : defaultPool
+  //config['pool'] = (config.pool && true) ? {...defaultPool, ...config.pool} : defaultPool
   //assert(config, 'shape')
   //assert(config, 'layers')
   return config

@@ -1,9 +1,18 @@
 const $ = require('./utils')
 const tf = $.tf
 
-module.exports = {dense, rnn, conv}
+module.exports = {dense, rnn, conv, iir}
 
-const scalar_zero = tf.variable(tf.scalar(0, 'float32'), false) 
+const scalar_zero = $.scalar(0)//tf.variable(tf.scalar(0, 'float32'), false) 
+
+function iir({input_shape, layers, depth=3, mag=.1, input=undefined, ortho=false, xav=true, cellfn=null}){
+  let fwd = rnn(arguments[0])
+  let fbk = rnn(arguments[0])
+  let flow = function(input, train=true){
+    return fwd.flow(input, 'fwd', train).add(fbk.flow(input, 'fbk', train))
+  }
+  return {flow}
+}
 
 function rnn({input_shape, layers, depth=3, mag=.1, input=undefined, ortho=false, xav=true, cellfn=null}){
   $.assert(arguments['0'], ['input_shape', 'layers'])
@@ -38,19 +47,27 @@ function rnn({input_shape, layers, depth=3, mag=.1, input=undefined, ortho=false
 
 
 
-    return function(input, train=false){
-      var output = fn(input, train).matMul(layer)
-      if(train){
-        var fb = feedback.map((e,i) => e.matMul(fb_w[i]))
-        var prev = fb.reduce((a, e) => tf.sigmoid(e.add(a)), scalar_zero)
-        output = output.add(prev)
+    return function(input, direction='fbk', train=true){
+      var output = activation(fn(input, train).matMul(layer))
+      if(true){
+        var fb = feedback.map((e,i) => activation(e.matMul(fb_w[i])))
+        var prev = fb.reduce((a, e) => e.add(a), scalar_zero)
+        //console.log(prev, output)
+        //if(!(prev.shape[0] === output.shape[0])) prev = prev.slice([0,0], [input.shape[0], input.shape[1]])
         $.dispose([feedback[0]]) 
         feedback.shift()
+        if(direction==='fwd'){
+          if(train) feedback.push(tf.variable(output, false))
+          output = output.add(prev.div($.scalar(depth)))
+        }
+        else{
+          output = output.add(prev.div($.scalar(depth)))
+          if(train) feedback.push(tf.variable(output, false))
+        }
         if(cellfn){
           output = cellfn(output)
         }
-        feedback.push(tf.variable(output, false))
-        $.dispose(fb)
+        $.dispose([fb, prev])
       } // else if generate, sum the feedbacks to gen_count dimensions each 
       else{ // take mean of feedback and splash it onto n input samples
         var fb = feedback.map((e,i) => e.matMul(fb_w[i]))
@@ -64,7 +81,7 @@ function rnn({input_shape, layers, depth=3, mag=.1, input=undefined, ortho=false
         feedback.push(tf.variable(output, false))
         $.dispose(fb)
       }
-      return activation(output)
+      return output
     }}, rootOp)    
 
   var outputShape = [input_shape[0], lastOutput]

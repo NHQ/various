@@ -11,14 +11,18 @@ function iir({input_shape, layers, depth=3, mag=.1, input=undefined, ortho=false
   let flow = function(input, train=true){
     return fwd.flow(input, 'fwd', train).add(fbk.flow(input, 'fbk', train))
   }
-  return {flow}
+  let save = function(){
+    fwd.save()
+    fbk.save()
+  }
+  return {flow, save}
 }
 
 function rnn({input_shape, layers, depth=3, mag=.1, input=undefined, ortho=false, xav=true, cellfn=null}){
   $.assert(arguments['0'], ['input_shape', 'layers'])
   
   var lastOutput = input_shape[1] 
-  var variables = [] 
+  var variables = [], saves = [] 
   var disposal = []
   var rootOp = function(input){return input}
   if(input){
@@ -29,17 +33,23 @@ function rnn({input_shape, layers, depth=3, mag=.1, input=undefined, ortho=false
     return variables.reduce((a, e) => tf.add($.regularize({input: e, l:.001, ll:.001}), a), $.scalar(0)).mul($.scalar(1/input_shape[0]))
   }
   function save(){
-    variables.forEach(e=>e.save())
+    saves.forEach(e=>e())
   }
   var flow = layers.reduce((a, e, i) => {
     let config = e
     config.shape = [lastOutput, config.size] 
     //  let scalar_mag = tf.variable(tf.scalar(mag, 'float32'), false) // ¿trainable?
     var feedback = new Array(depth).fill(0).map(e => tf.zeros([1, config.size])) 
-    var fb_w = new Array(depth).fill(0).map(e => $.variable({dev: !(xav) ? 1 : 1 / lastOutput, id: config.id ? config.id + i:false, shape: [config.size, config.size], trainable: true}).layer ) 
+    var fb_w = new Array(depth).fill(0).map(e => {
+      let {layer, activation, saver} = $.variable({dev: !(xav) ? 1 : 1 / lastOutput, id: config.id ? config.id + i:false, shape: [config.size, config.size], trainable: true})
+      variables.push(layer)
+      saves.push(saver)
+      return layer
+    }) 
     if(xav) config.dev = 1 / lastOutput
-    let {layer, activation} = $.variable(config)
+    let {layer, activation, saver} = $.variable(config)
     variables.push(layer)
+    saves.push(saver)
     variables = variables.concat(fb_w)
     lastOutput = config.size 
     
@@ -129,7 +139,7 @@ function conv({input_shape, layers, input=undefined, xav=true}){
     }}, rootOp)    
 
   var outputShape = [input_shape].concat([lastDepth])
-  return {flow, variables, outputShape, regularize, save}
+  return {flow, save, variables, outputShape, regularize}
 }
 
 

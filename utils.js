@@ -4,7 +4,8 @@ Error.stackTraceLimit = Infinity
 const tf = require('@tensorflow/tfjs')
 require('@tensorflow/tfjs-node-gpu')
 //require('@tensorflow/tfjs-node-gpu')
-var atob = require('arraybuffer-to-buffer')
+var atob = require('typedarray-to-buffer')
+var btoa = require('to-arraybuffer')
 var $ = require('./cheatcode.js')
 
 tf.linear = rootOp
@@ -117,12 +118,10 @@ function variable(config){
   if(params.id){ // try load
     try{
       fs.accessSync(pid = './filters/' + params.id)
-      console.log(params)
       var buf = fs.readFileSync(pid)
-      console.log(buf.length, buf.buffer.byteLength)
-      buf = new Float32Array(buf.buffer.slice(0,buf.length))
+      buf = new Float32Array(btoa(buf))
       layer = tf.tensor(buf, params.shape, params.type)
-      console.log('loaded layer id: ' + params.id)
+      console.log('loaded %s', params.id)
     } catch (err){
       console.log(err)
       layer = init(params)
@@ -130,8 +129,8 @@ function variable(config){
   } else layer = init(params)
   layer = tf.variable(layer, params.trainable)
   var saver = function(){
-    //console.log(params.id, layer)
-    fs.writeFile('./filters/' + params.id, atob(layer.dataSync().buffer), function(e,r){
+    console.log('saved %s', params.id)
+    fs.writeFile('./filters/' + params.id, atob(layer.dataSync()), function(e,r){
       if(e) console.log(e)
     })
   }

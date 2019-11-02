@@ -7,7 +7,7 @@ require('@tensorflow/tfjs-node-gpu')
 var atob = require('typedarray-to-buffer')
 var btoa = require('to-arraybuffer')
 var $ = require('./cheatcode.js')
-
+var argv = require('minimist')(process.argv)
 tf.linear = rootOp
 var log = console.log
 
@@ -121,16 +121,19 @@ function variable(config){
       var buf = fs.readFileSync(pid)
       buf = new Float32Array(btoa(buf))
       layer = tf.tensor(buf, params.shape, params.type)
-      console.log('loaded %s', params.id)
+      if(argv.v) console.log('loaded %s of size %d', params.id, layer.size)
     } catch (err){
-      console.log(err)
+      if(argv.v) console.log('no saved filter with id: %s, creating new', params.id)
+      //console.log(err)
       layer = init(params)
     }
   } else layer = init(params)
   layer = tf.variable(layer, params.trainable)
   var saver = function(){
-    console.log('saved %s', params.id)
-    fs.writeFile('./filters/' + params.id, atob(layer.dataSync()), function(e,r){
+    if(argv.v) console.log('saved %s of size %d', params.id, layer.size)
+    //console.log(atob(layer.dataSync()))
+    let buf = atob(layer.dataSync().buffer)
+    fs.writeFileSync('./filters/' + params.id, buf, function(e,r){
       if(e) console.log(e)
     })
   }

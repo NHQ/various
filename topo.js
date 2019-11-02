@@ -8,7 +8,7 @@ const scalar_zero = $.scalar(0)//tf.variable(tf.scalar(0, 'float32'), false)
 function iir({input_shape, layers, depth=3, mag=.1, input=undefined, ortho=false, xav=true, cellfn=null}){
   let fwd = rnn(arguments[0])
   let fbk = rnn(arguments[0])
-  let flow = function(input, train=true){
+  let flow = function(input, train){
     return fwd.flow(input, 'fwd', train).add(fbk.flow(input, 'fbk', train))
   }
   let save = function(){
@@ -57,8 +57,8 @@ function rnn({input_shape, layers, depth=3, mag=.1, input=undefined, ortho=false
 
 
 
-    return function(input, direction='fbk', train=true){
-      var output = activation(fn(input, train).matMul(layer))
+    return function(input, direction='fbk', train){
+      var substack = activation(fn(input, train).matMul(layer))
       if(true){
         var fb = feedback.map((e,i) => activation(e.matMul(fb_w[i])))
         var prev = fb.reduce((a, e) => e.add(a), scalar_zero)
@@ -67,17 +67,16 @@ function rnn({input_shape, layers, depth=3, mag=.1, input=undefined, ortho=false
         $.dispose([feedback[0]]) 
         feedback.shift()
         if(direction==='fwd'){
-          if(train) feedback.push(tf.variable(output, false))
-          output = output.add(prev.div($.scalar(depth)))
+          feedback.push(tf.variable(substack, false))
         }
         else{
-          output = output.add(prev.div($.scalar(depth)))
-          if(train) feedback.push(tf.variable(output, false))
+          feedback.push(tf.variable(substack.add(prev), false))//.div($.scalar(depth)))
         }
         if(cellfn){
-          output = cellfn(output)
+          output = cellfn(substack)
         }
-        $.dispose([fb, prev])
+        var output = substack.add(prev.div($.scalar(depth)))
+        $.dispose([prev, output].concat(fb))
       } // else if generate, sum the feedbacks to gen_count dimensions each 
       else{ // take mean of feedback and splash it onto n input samples
         var fb = feedback.map((e,i) => e.matMul(fb_w[i]))

@@ -13,13 +13,21 @@ var log = console.log
 
 const init = initializers = {harmonic, orthoNormal, orthoUniform, orthoTruncated, randomNormal, randomUniform, randomTruncated, zeros, ones}
 
-module.exports = {tautime, log, jsdft, dft, harmonic, phase, mag, tf, conv2d, gc, regularize, scalar, dispose, variable, initializers, init, combinatorial, nextTick, createRollMatrix, assert, a0, invertMask}
+module.exports = {covariate, correlation, tautime, log, jsdft, dft, harmonic, phase, mag, tf, conv2d, gc, regularize, scalar, dispose, variable, initializers, init, combinatorial, nextTick, createRollMatrix, assert, a0, invertMask}
 
 function rootOp(input){return input}
+
 
 const scalars = {}
 var disposal = []
 
+function correlation(x, y){
+  return covariate(x, y).div(tf.sqrt(covariate(x, x).add(covariate(y,y))))
+}
+function covariate(x, y){
+  let X=tf.mean(x), Y=tf.mean(y)
+  return tf.sum(x.sub(X).mul(y.sub(Y)))
+}
 function phase(a,b){
   return tf.atan2(a, b)//.div(scalar(Math.PI).div(scalar(2)))
 }

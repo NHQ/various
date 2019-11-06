@@ -64,17 +64,19 @@ function rnn({input_shape, layers, depth=3, mag=.1, input=undefined, ortho=false
         var prev = fb.reduce((a, e) => e.add(a), scalar_zero)
         //console.log(prev, output)
         //if(!(prev.shape[0] === output.shape[0])) prev = prev.slice([0,0], [input.shape[0], input.shape[1]])
-        $.dispose([feedback[0]]) 
-        feedback.shift()
-        if(direction==='fwd'){
-          feedback.push(tf.variable(substack, false))
+        if(true){
+          $.dispose([feedback[0]]) 
+          feedback.shift()
+          if(direction==='fwd'){
+            feedback.push(tf.variable(substack, false))
+          }
+          else{
+            feedback.push(tf.variable(substack.add(prev), false))//.div($.scalar(depth)))
+          }
         }
-        else{
-          feedback.push(tf.variable(substack.add(prev), false))//.div($.scalar(depth)))
-        }
-        if(cellfn){
-          output = cellfn(substack)
-        }
+        //if(cellfn){
+        //  output = cellfn(substack)
+        //}
         var output = substack.add(prev.div($.scalar(depth)))
         $.dispose([prev, output].concat(fb))
       } // else if generate, sum the feedbacks to gen_count dimensions each 

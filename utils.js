@@ -13,7 +13,7 @@ var log = console.log
 
 const init = initializers = {harmonic, orthoNormal, orthoUniform, orthoTruncated, randomNormal, randomUniform, randomTruncated, zeros, ones}
 
-module.exports = {covariate, correlation, tautime, log, jsdft, dft, harmonic, phase, mag, tf, conv2d, gc, regularize, scalar, dispose, variable, initializers, init, combinatorial, nextTick, createRollMatrix, assert, a0, invertMask}
+module.exports = {pearson, normalize, covariate, correlation, tautime, log, jsdft, dft, harmonic, phase, mag, tf, conv2d, gc, regularize, scalar, dispose, variable, initializers, init, combinatorial, nextTick, createRollMatrix, assert, a0, invertMask}
 
 function rootOp(input){return input}
 
@@ -21,12 +21,29 @@ function rootOp(input){return input}
 const scalars = {}
 var disposal = []
 
+function normalize(x, rmin=0, rmax=1, min, max){
+  max = x.slice(x.argMax().dataSync()[0], 1)
+  min = x.slice(x.argMin().dataSync()[0], 1) 
+  rmin = tf.scalar(rmin)
+  rmax = tf.scalar(rmax)
+  return rmin.add(x.sub(min).mul(rmax.sub(rmin).div(max.sub(min)))) 
+}
+function pearson(d1, d2) {
+  let n = scalar(Math.min(d1.shape[d1.rank-1], d2.shape[d2.rank-1]))
+  let b = scalar(2)
+  let [sum1, sum2] = [d1.sum(), d2.sum()]
+  let [pow1, pow2] = [d1.pow(b).sum(), d2.pow(b).sum()]
+  let mulSum = d1.mul(d2).sum()
+  let dense = tf.sqrt(pow1.sub(tf.pow(sum1, b).div(n)).mul(pow2.sub(tf.pow(sum2, b).div(n))))
+  return mulSum.sub(sum1.mul(sum2.div(n))).div(dense)
+}
+
 function correlation(x, y){
   return covariate(x, y).div(tf.sqrt(covariate(x, x).add(covariate(y,y))))
 }
 function covariate(x, y){
   let X=tf.mean(x), Y=tf.mean(y)
-  return tf.sum(x.sub(X).mul(y.sub(Y)))
+  return tf.sum(x.sub(X).mul(y.sub(Y))).div(scalar(x.shape[1]))
 }
 function phase(a,b){
   return tf.atan2(a, b)//.div(scalar(Math.PI).div(scalar(2)))
@@ -101,7 +118,7 @@ function configur8({
   config['pad'] = pad 
   config['strides'] = strides 
   config['dilations'] = dilations
-  //config['pool'] = (config.pool && true) ? {...defaultPool, ...config.pool} : defaultPool
+  config['pool'] = config.pool ? {...defaultPool, ...config.pool} : defaultPool
   //assert(config, 'shape')
   //assert(config, 'layers')
   return config

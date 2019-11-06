@@ -39,6 +39,7 @@ function rnn({input_shape, layers, depth=3, mag=.1, input=undefined, ortho=false
     let config = e
     config.shape = [lastOutput, config.size] 
     //  let scalar_mag = tf.variable(tf.scalar(mag, 'float32'), false) // ¿trainable?
+    // TODO save feedback 
     var feedback = new Array(depth).fill(0).map(e => tf.zeros([1, config.size])) 
     var fb_w = new Array(depth).fill(0).map(e => {
       let {layer, activation, saver} = $.variable({dev: !(xav) ? 1 : 1 / lastOutput, id: config.id ? config.id + i:false, shape: [config.size, config.size], trainable: true})

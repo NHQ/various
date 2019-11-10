@@ -13,13 +13,17 @@ var log = console.log
 
 const init = initializers = {harmonic, orthoNormal, orthoUniform, orthoTruncated, randomNormal, randomUniform, randomTruncated, zeros, ones}
 
-module.exports = {pearson, normalize, covariate, correlation, tautime, log, jsdft, dft, harmonic, phase, mag, tf, conv2d, gc, regularize, scalar, dispose, variable, initializers, init, combinatorial, nextTick, createRollMatrix, assert, a0, invertMask}
+module.exports = {angularDistance, pearson, normalize, covariate, correlation, tautime, log, jsdft, dft, harmonic, phase, mag, tf, conv2d, gc, regularize, scalar, dispose, variable, initializers, init, combinatorial, nextTick, createRollMatrix, assert, a0, invertMask,btoa, atob}
 
 function rootOp(input){return input}
 
 
 const scalars = {}
 var disposal = []
+
+function angularDistance (x, y){
+  return $.scalar(1).sub(tf.acos(x.mul(y).sum().div(tf.sqrt(x.pow($.scalar(2)).sum()).mul(tf.sqrt(y.pow($.scalar(2)).sum())))).div($.scalar(Math.PI)))
+}
 
 function normalize(x, rmin=0, rmax=1, min, max){
   max = x.slice(x.argMax().dataSync()[0], 1)
@@ -124,9 +128,11 @@ function configur8({
   return config
 }
 
-function regularize({input, l1=true, l2=true, l=.01, ll=.01}){
+function regularize({input, l1=true, l2=true, l=.001, ll=.001}){
   assert(arguments['0'], ['input'])
   let r = scalar(0)
+  
+  input = input.sum(0).sum()//.print()
   if(l1) r = tf.add(r, tf.sum(tf.mul(scalar(l), tf.abs(input))))
   if(l2) r = tf.add(r, tf.sum(tf.mul(scalar(ll), tf.square(input))))
   return r
@@ -154,6 +160,7 @@ function variable(config){
     }
   } else layer = init(params)
   layer = tf.variable(layer, params.trainable)
+  var fuzzer = _ => layer = tf.variable(init(params), params.trainable)
   var saver = function(){
     if(argv.v) console.log('saved %s of size %d', params.id, layer.size)
     //console.log(atob(layer.dataSync()))
@@ -163,7 +170,7 @@ function variable(config){
     })
   }
   //if(params.id) save()
-  return {layer,  activation, saver}
+  return {layer,  activation, saver, fuzzer}
 }
 
 async function nextTick(fn){ await tf.nextFrame(); fn()}
@@ -258,7 +265,7 @@ function createRollMatrix(s, t){
   function rollLeftOne(l){
     var a = new Float32Array(l)
     var n = Math.sqrt(l)
-    a.fill(0)
+    /a.fill(0)
     a.forEach((e,i,a) => (i - n) % (n + 1) === 0 ? a[i] = 1 : a[i] = 0)
     a[n - 1] = 1
     return tf.tensor(a, [n,n], 'float32')

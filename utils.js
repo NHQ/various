@@ -6,14 +6,14 @@ require('@tensorflow/tfjs-node-gpu')
 //require('@tensorflow/tfjs-node-gpu')
 var atob = require('typedarray-to-buffer')
 var btoa = require('to-arraybuffer')
-var $ = require('./cheatcode.js')
+//var $ = require('../polysynth/cheatcode.js')
 var argv = require('minimist')(process.argv)
 tf.linear = rootOp
 var log = console.log
 
 const init = initializers = {harmonic, orthoNormal, orthoUniform, orthoTruncated, randomNormal, randomUniform, randomTruncated, zeros, ones}
 
-module.exports = {angularDistance, pearson, normalize, covariate, correlation, tautime, log, jsdft, dft, harmonic, phase, mag, tf, conv2d, gc, regularize, scalar, dispose, variable, initializers, init, combinatorial, nextTick, createRollMatrix, assert, a0, invertMask,btoa, atob}
+var $ = module.exports = {angularDistance, pearson, normalize, covariate, correlation, tautime, log, jsdft, dft, harmonic, phase, mag, tf, conv2d, gc, regularize, scalar, dispose, variable, initializers, init, combinatorial, nextTick, createRollMatrix, assert, a0, invertMask,btoa, atob, gol, space}
 
 function rootOp(input){return input}
 
@@ -24,13 +24,17 @@ var disposal = []
 function angularDistance (x, y){
   return $.scalar(1).sub(tf.acos(x.mul(y).sum().div(tf.sqrt(x.pow($.scalar(2)).sum()).mul(tf.sqrt(y.pow($.scalar(2)).sum())))).div($.scalar(Math.PI)))
 }
-
+function standardize(x, mean=0, dev=1){
+  let m = tf.mean(x)
+}
 function normalize(x, rmin=0, rmax=1, min, max){
-  max = x.slice(x.argMax().dataSync()[0], 1)
-  min = x.slice(x.argMin().dataSync()[0], 1) 
+  let shape=x.shape
+  x = x.reshape([x.size])
+  max = x.slice(x.argMax().dataSync()[0], [1])
+  min = x.slice(x.argMin().dataSync()[0], [1]) 
   rmin = tf.scalar(rmin)
   rmax = tf.scalar(rmax)
-  return rmin.add(x.sub(min).mul(rmax.sub(rmin).div(max.sub(min)))) 
+  return rmin.add(x.sub(min).mul(rmax.sub(rmin).div(max.sub(min)))).reshape(shape)
 }
 function pearson(d1, d2) {
   let n = scalar(Math.min(d1.shape[d1.rank-1], d2.shape[d2.rank-1]))
@@ -103,7 +107,7 @@ function assert(thing, whiches){
 }
 
 function configur8({
-  trainable=true, init='randomNormal', min=0, max=1, mean=0, dev=1, regularizer=false, activation='relu', type='float32', 
+  trainable=true, init='randomNormal', min=0, max=1, mean=0, dev=1, regularizer=false, activation='relu', aa=0, type='float32', 
   strides=[1,1], pad='same', dilations=[1,1], 
   defaultPool={fn: rootOp, size: 1, strides: 1, pad: 'same'}
 }){
@@ -119,6 +123,7 @@ function configur8({
   config['type'] = type
   config['regularizer'] = regularizer
   config['activation'] = activation
+  config['aa'] = config.activation == 'prelu' ? variable({size: 1, shape: [1], init: 'zeros'}).layer : null
   config['pad'] = pad 
   config['strides'] = strides 
   config['dilations'] = dilations
@@ -148,12 +153,15 @@ function variable(config){
   var pid = undefined
   if(params.id){ // try load
     try{
+      //console.log(fs.readdirSync('./filters'))
       fs.accessSync(pid = './filters/' + params.id)
       var buf = fs.readFileSync(pid)
       buf = new Float32Array(btoa(buf))
+      //console.log(buf)
       layer = tf.tensor(buf, params.shape, params.type)
       if(argv.v) console.log('loaded %s of size %d', params.id, layer.size)
     } catch (err){
+      
       if(argv.v) console.log('no saved filter with id: %s, creating new', params.id)
       //console.log(err)
       layer = init(params)
@@ -241,6 +249,29 @@ function jsdft(x, k, sr){
    
   let y = x.map((e,i)=>[e*Math.cos(-(Math.PI * 2 * i * k / sr)), e*Math.sin(-(Math.PI * 2 * k * i /sr))])
   return y
+}
+
+async function space(){
+  return new Promise(res => {
+    document.addEventListener('keydown', e => res(e))
+  }, {once: true})
+}
+// gollify, golefy? [1]
+function gol(shape, init){
+  var n = $.tf.tensor(Array(9).fill(1/8).map((e,i) => i === 4 ? 0 : e), [3,3,1,1])//.concat(([1,1])))
+  var x = $.scalar(8)
+  var state = init
+  return {state, next}
+  function next(alt){ // state.shape = [1, shape[0], shape[1], 1] 
+    if(alt) state = alt
+    let fy = $.tf.conv2d(state, n, [1,1], 'same', 'NHWC', [1,1])
+    let i = $.invertMask(fy.add($.scalar(1e-5)).round()) 
+    i = i.mul(fy.mul(x)) 
+    let nt  = i.sub($.scalar(1)).mul(state).add(i.sub($.scalar(2))).relu().add($.scalar(1)).log().round() 
+    state = nt
+    $.dispose([i, fy], true)
+    return {state, next}
+  }
 }
 
 // inverts a one-hot mask (such as the identity matrix, or eye)

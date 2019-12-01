@@ -8,10 +8,14 @@ function etree({}){
 
 }
 function iir({input_shape, layers, depth=3, mag=.1, input=undefined, ortho=false, xav=true, cellfn=null}){
-  let fwd = rnn(arguments[0])
-  let fbk = rnn(arguments[0])
+  let fwd = rin(arguments[0])
+  arguments[0].input_shape = fwd.outputShape
+  arguments[0].fwd = false
+  let fbk = rin(arguments[0])
   let flow = function(input, train){
-    return fwd.flow(input, 'fwd', train).add(fbk.flow(input, 'fbk', train))
+    let i = fwd.flow(input, 'fwd', train)
+    let j = fbk.flow(i, 'fbk', train)
+    return j
   }
   let save = function(){
     fwd.save()
@@ -27,6 +31,84 @@ function iir({input_shape, layers, depth=3, mag=.1, input=undefined, ortho=false
     return fwd.regularize().add(fbk.regularize())
   }
   return {flow, save, regularize, fuzz}
+}
+
+function rin({input_shape, layers, depth=3, fwd=true, mag=.1, input=undefined, ortho=false, xav=true, cellfn=null}){
+  $.assert(arguments['0'], ['input_shape', 'layers'])
+  dpeth = depth - 1 
+  var lastOutput = input_shape[1] 
+  var variables = [], saves = [], fuzzers = [], clears =[] 
+  var disposal = []
+  var rootOp = function(input){return input}
+  if(input){
+    rootOp = input.flow
+    input_shape = input.outputShape
+  }
+  function regularize(){
+    return variables.reduce((a, e) => tf.add($.regularize({input: e, l:.001, ll:.001}), a), $.scalar(0)).mul($.scalar(1/input_shape[1]))
+  }
+  function save(){
+    saves.forEach(e=>e())
+  }
+  function fuzz(){
+    fuzzers.forEach(e => e())
+  }
+  function clear(){
+    clears.forEach(e => e())
+  }
+  var flow = layers.reduce((a, e, i) => {
+    let config = e
+    config.shape = [lastOutput, config.size] 
+    //  let scalar_mag = tf.variable(tf.scalar(mag, 'float32'), false) // ¿trainable?
+    // TODO save feedback 
+    var feedback = new Array(depth).fill(0).map(e => tf.zeros([1, config.size])) 
+    var ff = fwd ? 'fwd' : 'fb'
+    var fb_w = new Array(depth).fill(0).map((e,i) => {
+      let {layer, activation, saver, fuzzer} = $.variable({dev: !(xav) ? 1 : 1 / lastOutput, id: config.id ? config.id + ff+i:false, shape: [config.size, config.size], trainable: true})
+      variables.push(layer)
+      saves.push(saver)
+      fuzzers.push(fuzzer)
+      return layer
+    }) 
+    if(xav) config.dev = 1 / lastOutput
+    //if(fwd) {
+      var {layer, activation, saver, fuzzer} = $.variable(config)
+      variables.push(layer)
+      saves.push(saver)
+      fuzzers.push(fuzzer)
+      var clear = function(){
+        feedback = new Array(depth).fill(0).map(e => tf.zeros([1, config.size])) 
+      }
+      clears.push(clear)
+    //}
+    variables = variables.concat(fb_w)
+    lastOutput = config.size 
+     
+    let fn = a
+
+    return function(input, direction='fbk', train){
+      var fb = feedback.map((e,i) => activation(e.matMul(fb_w[i]), config.aa))
+      var prev = fb.reduce((a, e) => e.add(a), scalar_zero)
+      $.dispose([feedback[0]]) 
+      feedback.shift()
+      var substack, output
+      if(fwd){
+        substack = activation(fn(input, train).matMul(layer), config.aa)
+        feedback.push(tf.variable(substack, false))
+        output = substack.add(prev)//.matMul(layer)//.div($.scalar(depth)))
+      }
+      else{
+        substack = activation(fn(input, train), config.aa)//.matMul(layer))
+        output = substack.add(prev)
+        feedback.push(tf.variable(output, false))//.div($.scalar(depth)))
+      }
+      $.dispose([prev, output, substack].concat(fb))
+      return output
+    }}, rootOp)    
+
+  var outputShape = [input_shape[0], lastOutput]
+  return {flow, variables, outputShape, disposal, regularize, save, fuzz, clear}
+
 }
 
 function rnn({input_shape, layers, depth=3, mag=.1, input=undefined, ortho=false, xav=true, cellfn=null}){
@@ -177,8 +259,8 @@ function dense({input_shape, layers, input=undefined, ortho=false, xav=true}){
     input_shape = input.outputShape
   }
 
-  function regularize(){
-    variables = variables.map(e => e.mul(variables.reduce((a, e) => tf.add($.regularize({input: e}), a), $.scalar(0))))
+  function regularize(l=.01, ll=.01){
+    return variables.reduce((a, e) => tf.add($.regularize({input: e, l, ll}), a), $.scalar(0)).mul($.scalar(1/input_shape[1]))
   }
   
   function save(){
@@ -199,7 +281,7 @@ function dense({input_shape, layers, input=undefined, ortho=false, xav=true}){
     
     return function(input){
       let output = fn(input).matMul(layer)
-      let result = activation(output)
+      let result = activation(output, config.aa)
       return result
     }}, rootOp)    
 

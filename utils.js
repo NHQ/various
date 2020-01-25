@@ -13,13 +13,17 @@ var log = console.log
 
 const init = initializers = {harmonic, orthoNormal, orthoUniform, orthoTruncated, randomNormal, randomUniform, randomTruncated, zeros, ones}
 
-module.exports = {angularDistance, pearson, normalize, covariate, correlation, tautime, log, jsdft, dft, harmonic, phase, mag, tf, conv2d, gc, regularize, scalar, dispose, variable, initializers, init, combinatorial, nextTick, createRollMatrix, assert, a0, invertMask,btoa, atob}
+module.exports = {angularDistance, pearson, normalize, covariate, correlation, tautime, log, jsdft, dft, harmonic, phase, mag, tf, conv2d, gc, regularize, scalar, dispose, variable, initializers, init, combinatorial, nextTick, createRollMatrix, assert, a0, invertMask,btoa, atob, logistic}
 
 function rootOp(input){return input}
 
 
 const scalars = {}
 var disposal = []
+
+function logistic(data){
+    return scalar(1).div(scalar(1).add(tf.exp(tf.neg(data))))
+}
 
 function angularDistance (x, y){
   return $.scalar(1).sub(tf.acos(x.mul(y).sum().div(tf.sqrt(x.pow($.scalar(2)).sum()).mul(tf.sqrt(y.pow($.scalar(2)).sum())))).div($.scalar(Math.PI)))
@@ -32,12 +36,12 @@ function normalize(x, rmin=0, rmax=1, min, max){
   rmax = tf.scalar(rmax)
   return rmin.add(x.sub(min).mul(rmax.sub(rmin).div(max.sub(min)))) 
 }
-function pearson(d1, d2) {
+function pearson(d1, d2, i) {
   let n = scalar(Math.min(d1.shape[d1.rank-1], d2.shape[d2.rank-1]))
   let b = scalar(2)
-  let [sum1, sum2] = [d1.sum(), d2.sum()]
-  let [pow1, pow2] = [d1.pow(b).sum(), d2.pow(b).sum()]
-  let mulSum = d1.mul(d2).sum()
+  let [sum1, sum2] = [d1.sum(i), d2.sum(i)]
+  let [pow1, pow2] = [d1.pow(b).sum(i), d2.pow(b).sum(i)]
+  let mulSum = d1.mul(d2).sum(i)
   let dense = tf.sqrt(pow1.sub(tf.pow(sum1, b).div(n)).mul(pow2.sub(tf.pow(sum2, b).div(n))))
   return mulSum.sub(sum1.mul(sum2.div(n))).div(dense)
 }

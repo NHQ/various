@@ -1,0 +1,24 @@
+can a NN learn to apply the rules of GoL?  Somebody knows.
+is there a pure tensor/gpu way to do it?  We think not.
+how might an aNNe change the rules of GoL? 
+What circumstances shall this be allowed?
+as a strategy?  idk.  don't stress it.
+build basic GoL and learn the machine.
+convolve and transform
+the input is the grid
+the output is the grid with the placements
+or, constrain the area to a sub-grid
+one thing is maybe scoring based on novelty of creation
+or, perhaps, let the policy play out N frames, and score based on proliferation, 
+later how many of the other team are destroyed (chain reactions)
+these may not be necessary but who knows
+a perfect machine may not be desirable if a human is playing, bwime making decisions, tweaking algos, etc
+scoring options (cost functions) def seem enticing interactions
+the first agent should simply add to the grid, restrained only by the number of placements per turn
+ah ok, mayb an agent's turn is not equal to the tick of the game clock;  i.e. 1 turn = 11 ticks
+that solves the above challenge of informing the agent of it's effects
+time travel as agent's choice:  let this action play out before scoring, 
+  or play on; a kind of intrinsic multi agent training (actor/director?)
+    AI Bullet Time >_<
+parameters are fun;  some should be human tweaker, some auto-discovered (TODO)
+

@@ -14,7 +14,7 @@ Notable pieces and projects:
   * Useful for ML assisted design and AI telemetry 
   * interactive demo
 * [Tensor visualization](https://nhq.github.io/wavetable/public/) (Discreet Fourier Transforms over phase changes)
-* Streaming Video Batch Processing](https://github.com/NHQ/piped_convolution/blob/master/server.js)
+* [Streaming Video Batch Processing](https://github.com/NHQ/piped_convolution/blob/master/server.js)
   * Train and Test Batching
   * options: size, scale, frame start, and pixel formats
   * uses ffmpeg

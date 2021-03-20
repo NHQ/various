@@ -6,7 +6,7 @@ var tf = require('@tensorflow/tfjs-node-gpu')
 //require('@tensorflow/tfjs-node-gpu')
 var atob = require('typedarray-to-buffer')
 var btoa = require('to-arraybuffer')
-var $ = require('./cheatcode.js')
+var $ = require('./cheatbundle.js')
 var argv = require('minimist')(process.argv)
 tf.linear = rootOp
 var log = console.log

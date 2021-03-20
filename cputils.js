@@ -2,7 +2,7 @@ var fs = require('fs')
 Math.random = require('math-random')
 Error.stackTraceLimit = Infinity
 //const tf = require('@tensorflow/tfjs')
-require('@tensorflow/tfjs-node-gpu')
+require('@tensorflow/tfjs-node')
 //require('@tensorflow/tfjs-node-gpu')
 var atob = require('typedarray-to-buffer')
 var btoa = require('to-arraybuffer')

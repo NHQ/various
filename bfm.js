@@ -10,6 +10,7 @@ class Boltzman{
     this.l1 = $.scalar(0)
     this.decay = $.scalar(decay)
     this.momentum = $.scalar(momentum)
+    this.rate = tf.variable(this.momentum.mul($.scalar(rate)))
     this._shape = [input_size, hidden_size]
     let w = $.variable({
       shape: this._shape,
@@ -18,7 +19,6 @@ class Boltzman{
     })
     this.save = w.saver
     this.weights = w.layer 
-    this.rate = $.scalar(rate)
     this.hbias = $.variable({
       shape: [1, hidden_size],
       init: 'zeros'
@@ -85,7 +85,25 @@ class Boltzman{
     var hresult = hprob.greaterEqual(target || $.variable({init:'randomUniform', shape: [data.shape[0], this._shape[0]]}).layer).asType('float32')
     return {result: hresult, prob: hrprob} 
   }
-  trainp(data, target){
+  trainp(data){
+    var qprob =tf.dot(data, this.weights)
+    var qresult = tf.sigmoid(qprob).greaterEqual($.variable({init:'randomUniform', shape: [data.shape[0], this._shape[1]]}).layer).asType('float32')
+    var hprob = tf.dot(qresult, this.weights.transpose())
+    hprob = tf.sigmoid(hprob)
+    var hresult = hprob.greaterEqual($.variable({init:'randomUniform', shape: [data.shape[0], this._shape[0]]}).layer).asType('float32')
+    var q2 = tf.sigmoid(tf.dot(hresult, this.weights))
+    var pas = tf.dot(qresult.transpose(), data)
+    var nas = tf.dot(q2.transpose(), hprob)
+
+    var error = tf.sum(data.sub(hprob).pow($.scalar(2)))
+    var grad = this.rate.mul(pas.sub(nas).transpose().div($.scalar(data.shape[0])))
+
+    this.weights.assign(this.weights.add(grad))
+    this.rate = tf.variable(this.momentum.mul(this.rate).sub(grad))
+
+    return {result: hresult, error, cost: pas.sub(nas).mean(), rate: this.rate}
+  }
+  trainq(data, target){
     //var dirty =  target || data.add($.variable({dev: this.dev, shape: data.shape}).layer)
     //var fauxpas = this.query(dirty)
 
@@ -143,7 +161,7 @@ class Boltzman{
 module.exports = Boltzman
 //Test()
 //demnist()
-multi()
+//multi()
 
 async function multi(){
 

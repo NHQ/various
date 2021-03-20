@@ -1,7 +1,7 @@
 const $ = require('./utils.js')
 const tf = $.tf
 
-class Boltzman{
+class Boltzman2{
   constructor(input_size, hidden_size, rate=1e-3, momentum=.01, decay=1e-5, dev=.01){
     this.input_size = input_size
     this.hidden_size = hidden_size
@@ -126,29 +126,37 @@ class deep{
 }
 
 module.exports = Boltzman
-
-function Test(){
-
+var TV = require('./lib/tensorview.js') 
   var hft = require('../audio/fft/hft')
   var ndarray = require('ndarray')
   var chalk = require('chalk')
-  console.vlog = _ => console.log(_.split('').map(e => Number(e) === 0 ? chalk.black.bgBlue('0') : chalk.black.bgGreen('0')).join(''))
-  var size = 32
+  var Boltzman = require('./bfm.js')
+  Test()
+function Test(){
+
+  var size = 16 
+  var input = size
+  var hidden = size * 100
   const err = .2 
-  const epochas = 32*4
+  const epochas = 1000
   // the energy and decay are correlated, therefor decay may be correlated to the gaussian energy potential...?
   // error and rate are correlated therefor rate may correlate to... 
-  const bm = new Boltzman(size, 5120/1, 1e-3, .9, 1e-5, err)
+  const bm = new Boltzman(size, hidden, 1e-2, .9, 1e-5, err)
+  console.vlog = (_, s, p=25) => {
+    let tv = new TV(size,s , p)
+    document.body.appendChild(tv.canvas)
+    tv.draw(_)
+  }
   
   console.log(bm.potential().dataSync())
-  var td = Array(size).fill(0).map((e,i) => {
+  var td = Array(input).fill(0).map((e,i) => {
     let b = ndarray(new Int32Array(size))
     let n = $.variable({shape: [1, size], init: 'zeros', max: .67}).layer.round().relu().asType('int32')
     let nd = ndarray(n.dataSync())
     let target = ndarray(n.dataSync())
-    if(i < size/2){
-      nd.set(i, 1)
-      target.set(i, 1)
+    if(i < size){
+      nd.set(i+1 % 16, 1)
+      target.set(i+1 % 16, 1)
     }
     else{
       nd.set(i-16, 1)
@@ -159,42 +167,48 @@ function Test(){
     hft(nd,  b)
     return {input: tf.tensor(b.data, [1,size]), target: tf.tensor(target.data, [1, size])}
   })
-  td.forEach(e => console.vlog(e.input.dataSync().join('')))//.print())
+  //td.forEach(e => console.vlog(e.input.dataSync()))//.print())
   console.log('###################')
-  td.forEach(e => console.vlog(e.target.dataSync().join('')))//.print())
+ // td.forEach(e => console.vlog(e.target.dataSync()))//.print())
   console.log('###################')
   //process.exit()
 
   //process.exit()
   var training_data = tf.squeeze(tf.stack(td.map(e => e.input)))
   var target_data = tf.squeeze(tf.stack(td.map(e => e.target)))
+  console.vlog(training_data.dataSync(), size)
   for(var i = 0; i < epochas; i++)
     tf.tidy(_=> test(bm, training_data, null))//target_data))
 
 
   //td.forEach(e => console.log(e.dataSync().join('')))//.print())
   console.log('###################')
+  console.vlog(bm.activate(bm.query(training_data).result).prob.dataSync(), size)
+  console.vlog(bm.activate(bm.query(training_data).result).result.dataSync(), size)
+  console.vlog(bm.query(training_data).prob.dataSync(), hidden, 5)
+  console.vlog(bm.weights.dataSync(), hidden, 5)
   td.forEach(e => {
     //console.log(e.add($.variable({dev: .2, shape: e.shape}).layer).round().dataSync().join(''))//print()
     //console.log(bm.activate(bm.query(e).result).result.dataSync().join(''))//print()
   })
   td.forEach(e => {
-    console.vlog(bm.activate(bm.query(e.input.add($.variable({dev: err, shape: e.input.shape}).layer)).result).result.dataSync().join(''))//print()
+ //   console.vlog(bm.activate(bm.query(e.input.add($.variable({dev: err, shape: e.input.shape}).layer)).result).result.dataSync())//print()
     //console.vlog(bm.query(e.input.add($.variable({dev: err, shape: e.input.shape}).layer)).result.dataSync().join(''))//print()
     //console.log(bm.activate(bm.query(e).result).result.dataSync().join(''))//print()
   })
   td.forEach(e => {
-        console.vlog(bm.activate(bm.query(e.input).result).result.dataSync().join(''))//print()
+ //       console.vlog(bm.activate(bm.query(e.input).result).result.dataSync())//print()
   })
 
   function test(bm, data, target){
-    var res = bm.traind(data, target)
+//    console.log(bm)
+    var res = bm.trainp(data, target)
     //res.result.print()
-      res.cost.print()
-      res.error.print()
-      res.rate.mean().print()
-      bm.decay.mul(res.cost).print()
-    if(false && res.cost.abs().dataSync()[0] < 1){
+//      res.cost.print()
+//      res.error.print()
+//      res.rate.mean().print()
+//      bm.decay.mul(res.cost).print()
+    if(false){// && res.cost.abs().dataSync()[0] < 1){
       training_data.forEach(e => {
         console.log(bm.activate(bm.query(e.mul($.scalar(8)).add($.variable({dev: .1, shape: e.shape}).layer)).result).result.dataSync().join(''))//print()
       })

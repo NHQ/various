@@ -2,11 +2,11 @@ var fs = require('fs')
 Math.random = require('math-random')
 Error.stackTraceLimit = Infinity
 //const tf = require('@tensorflow/tfjs')
-require('@tensorflow/tfjs-node')
+var tf = require('@tensorflow/tfjs-node')
 //require('@tensorflow/tfjs-node-gpu')
 var atob = require('typedarray-to-buffer')
 var btoa = require('to-arraybuffer')
-var $ = require('./cheatcode.js')
+var $ = require('./cheatbundle.js')
 var argv = require('minimist')(process.argv)
 tf.linear = rootOp
 var log = console.log
